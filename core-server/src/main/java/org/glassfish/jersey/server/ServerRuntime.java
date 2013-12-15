@@ -84,7 +84,7 @@ import org.glassfish.jersey.message.internal.HeaderValueException;
 import org.glassfish.jersey.message.internal.OutboundJaxrsResponse;
 import org.glassfish.jersey.message.internal.OutboundMessageContext;
 import org.glassfish.jersey.message.internal.TracingLogger;
-import org.glassfish.jersey.process.internal.ExecutorsFactory;
+import org.glassfish.jersey.process.internal.RequestExecutorFactory;
 import org.glassfish.jersey.process.internal.RequestScope;
 import org.glassfish.jersey.process.internal.Stage;
 import org.glassfish.jersey.process.internal.Stages;
@@ -131,7 +131,7 @@ class ServerRuntime {
     private final Provider<Ref<Value<AsyncContext>>> asyncContextFactoryProvider;
     private final Provider<AsyncContext> asyncContextProvider;
     private final Provider<UriRoutingContext> uriRoutingContextProvider;
-    private final ExecutorsFactory<ContainerRequest> asyncExecutorsFactory;
+    private final RequestExecutorFactory asyncExecutorFactory;
     private final ApplicationEventListener applicationEventListener;
     private final Configuration configuration;
 
@@ -162,20 +162,20 @@ class ServerRuntime {
         @Inject
         private Provider<UriRoutingContext> uriRoutingContextProvider;
         @Inject
-        private ExecutorsFactory<ContainerRequest> asyncExecutorsFactory;
+        private RequestExecutorFactory asyncExecutorFactory;
         @Inject
         private Configuration configuration;
 
         /**
          * Create new server-side request processing runtime.
          *
-         * @param requestProcessingRoot application request processing root stage.
-         * @param eventListener         Application event listener registered for this runtime.
+         * @param processingRoot application request processing root stage.
+         * @param eventListener  Application event listener registered for this runtime.
          * @return new server-side request processing runtime.
          */
-        public ServerRuntime build(final Stage<ContainerRequest> requestProcessingRoot, ApplicationEventListener eventListener) {
+        public ServerRuntime build(final Stage<ContainerRequest> processingRoot, ApplicationEventListener eventListener) {
             return new ServerRuntime(
-                    requestProcessingRoot,
+                    processingRoot,
                     locator,
                     backgroundScheduler,
                     requestScope,
@@ -185,7 +185,7 @@ class ServerRuntime {
                     asyncContextRefProvider,
                     asyncContextProvider,
                     uriRoutingContextProvider,
-                    asyncExecutorsFactory,
+                    asyncExecutorFactory,
                     eventListener,
                     configuration);
         }
@@ -201,7 +201,7 @@ class ServerRuntime {
                           Provider<Ref<Value<AsyncContext>>> asyncContextFactoryProvider,
                           Provider<AsyncContext> asyncContextProvider,
                           Provider<UriRoutingContext> uriRoutingContextProvider,
-                          ExecutorsFactory<ContainerRequest> asyncExecutorsFactory,
+                          RequestExecutorFactory asyncExecutorFactory,
                           ApplicationEventListener applicationEventListener,
                           Configuration configuration) {
         this.requestProcessingRoot = requestProcessingRoot;
@@ -214,7 +214,7 @@ class ServerRuntime {
         this.asyncContextFactoryProvider = asyncContextFactoryProvider;
         this.asyncContextProvider = asyncContextProvider;
         this.uriRoutingContextProvider = uriRoutingContextProvider;
-        this.asyncExecutorsFactory = asyncExecutorsFactory;
+        this.asyncExecutorFactory = asyncExecutorFactory;
         this.applicationEventListener = applicationEventListener;
         this.configuration = configuration;
 
@@ -386,6 +386,22 @@ class ServerRuntime {
             return response;
         }
 
+        /**
+         * Process {@code throwable} by using exception mappers and generating the mapped
+         * response if possible.
+         * <p>
+         * Note about logging:
+         * <ul>
+         * <li>
+         * we do not log exceptions that are mapped by ExceptionMappers.
+         * </li><li>
+         * All other exceptions are logged: WebApplicationExceptions with entities,
+         *      exceptions that were unsuccessfully mapped
+         * </li>
+         * </ul>
+         * </p>
+         * @param throwable Exception to be processed.
+         */
         public void process(Throwable throwable) {
             request.getRequestEventBuilder().setException(throwable, RequestEvent.ExceptionCause.ORIGINAL);
             request.triggerEvent(RequestEvent.Type.ON_EXCEPTION);
@@ -434,6 +450,8 @@ class ServerRuntime {
 
         @SuppressWarnings("unchecked")
         private Response mapException(final Throwable originalThrowable) throws Throwable {
+            LOGGER.log(Level.FINER, LocalizationMessages.EXCEPTION_MAPPING_START(), originalThrowable);
+
             Throwable throwable = originalThrowable;
             boolean inMappable = false;
             boolean mappingNotFound = false;
@@ -443,20 +461,16 @@ class ServerRuntime {
                     inMappable = true;
                 } else if (inMappable || throwable instanceof WebApplicationException) {
                     Response waeResponse = null;
-                    Throwable cause = throwable;
 
                     if (throwable instanceof WebApplicationException) {
                         final WebApplicationException webApplicationException = (WebApplicationException) throwable;
-                        cause = webApplicationException.getCause();
+
                         waeResponse = webApplicationException.getResponse();
                         if (waeResponse.hasEntity()) {
+                            LOGGER.log(Level.FINE, LocalizationMessages
+                                    .EXCEPTION_MAPPING_WAE_ENTITY(waeResponse.getStatus()), throwable);
                             return waeResponse;
                         }
-                    }
-
-                    // Log cause of WebApplicationException.
-                    if (cause != null) {
-                        LOGGER.log(Level.WARNING, LocalizationMessages.WEB_APPLICATION_EXCEPTION_CAUSE(), cause);
                     }
 
                     final long timestamp = tracingLogger.timestamp(ServerTraceEvent.EXCEPTION_MAPPING);
@@ -490,6 +504,9 @@ class ServerRuntime {
                     }
 
                     if (waeResponse != null) {
+                        LOGGER.log(Level.FINE, LocalizationMessages
+                                .EXCEPTION_MAPPING_WAE_NO_ENTITY(waeResponse.getStatus()), throwable);
+
                         return waeResponse;
                     }
 
@@ -638,7 +655,7 @@ class ServerRuntime {
 
         private void setWrittenResponse(ContainerResponse response) {
             request.getRequestEventBuilder().setContainerResponse(response);
-            request.getRequestEventBuilder().setSuccess(response.getStatus() < 400);
+            request.getRequestEventBuilder().setSuccess(response.getStatus() < Response.Status.BAD_REQUEST.getStatusCode());
             request.getRequestEventBuilder().setResponseWritten(true);
         }
 
@@ -714,7 +731,7 @@ class ServerRuntime {
 
         @Override
         public void invokeManaged(final Producer<Response> producer) {
-            responder.runtime.asyncExecutorsFactory.getRequestingExecutor(responder.request).submit(new Runnable() {
+            responder.runtime.asyncExecutorFactory.getExecutor().submit(new Runnable() {
                 @Override
                 public void run() {
                     responder.runtime.requestScope.runInScope(scopeInstance, new Runnable() {
@@ -748,12 +765,13 @@ class ServerRuntime {
         }
 
         @Override
-        public boolean resume(final Object response) throws IllegalStateException {
+        public boolean resume(final Object response) {
             return resume(new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        final Response jaxrsResponse = toJaxrsResponse(response);
+                        final Response jaxrsResponse =
+                                (response instanceof Response) ? (Response) response : Response.ok(response).build();
                         ServerRuntime.ensureAbsolute(
                                 jaxrsResponse.getLocation(), jaxrsResponse.getHeaders(), responder.request);
                         responder.process(new ContainerResponse(responder.request, jaxrsResponse));
@@ -762,14 +780,6 @@ class ServerRuntime {
                     }
                 }
             });
-        }
-
-        private Response toJaxrsResponse(final Object response) {
-            if (response instanceof Response) {
-                return (Response) response;
-            } else {
-                return Response.ok(response).build();
-            }
         }
 
         @Override

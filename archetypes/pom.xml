@@ -47,6 +47,7 @@
         <artifactId>project</artifactId>
         <version>2.5-SNAPSHOT</version>
     </parent>
+
     <groupId>org.glassfish.jersey.archetypes</groupId>
     <artifactId>project</artifactId>
     <packaging>pom</packaging>
@@ -54,12 +55,13 @@
     <description>
         A module containing archetypes for generating Jersey-based applications.
     </description>
+
     <modules>
+        <module>jersey-heroku-webapp</module>
         <module>jersey-quickstart-grizzly2</module>
         <module>jersey-quickstart-webapp</module>
     </modules>
-    <build>
-    </build>
+
     <profiles>
         <profile>
             <id>release</id>

@@ -374,6 +374,31 @@
                             </para>
                         </entry>
                     </row>
+                    <row>
+                        <entry>&jersey.server.ServerProperties.RESPONSE_SET_STATUS_OVER_SEND_ERROR;</entry>
+                        <entry><literal>jersey.config.server.response.setStatusOverSendError</literal></entry>
+                        <entry>
+                            <para>
+                                Whenever response status is <literal>4xx</literal> or <literal>5xx</literal> it is
+                                possible to choose between <literal>sendError</literal> or <literal>setStatus</literal>
+                                on container specific <literal>Response</literal> implementation. E.g. on servlet
+                                container Jersey can call <literal>HttpServletResponse.setStatus(...)</literal> or
+                                <literal>HttpServletResponse.sendError(...)</literal>.
+
+                                Calling <literal>sendError(...)</literal> method usually resets entity, response headers
+                                and provide error page for specified status code (e.g. servlet
+                                <literal>error-page</literal> configuration).
+                                However if you want to post-process response (e.g. by servlet filter) the only
+                                way to do it is calling <literal>setStatus(...)</literal> on container Response object.
+
+                                If property value is &lit.true; the method <literal>Response.setStatus(...)</literal> is
+                                used over default <literal>Response.sendError(...)</literal>.
+
+                                Type of the property value is <literal>boolean</literal>.
+                                The default value is &lit.false;.
+                            </para>
+                        </entry>
+                    </row>
                 </tbody>
             </tgroup>
         </table>
@@ -403,7 +428,7 @@
                         <entry>
                             <para>
                                 Asynchronous thread pool size. Default value is not set.
-                                <emphasis>Supported with &jersey.grizzly.GrizzlyConnector; only.</emphasis>.
+                                <emphasis>Supported with &jersey.grizzly.GrizzlyConnectorProvider; only.</emphasis>.
                             </para>
                         </entry>
                     </row>
@@ -440,18 +465,6 @@
                         <entry>
                             <para>
                                 Declares that the client will automatically redirect to the URI declared in 3xx responses. Default value is <literal>true</literal>.
-                            </para>
-                        </entry>
-                    </row>
-                    <row>
-                        <entry><link xlink:href='&jersey.javadoc.path;/client/ClientProperties.html#HTTP_URL_CONNECTION_SET_METHOD_WORKAROUND'>ClientProperties
-                            .HTTP_URL_CONNECTION_SET_METHOD_WORKAROUND</link></entry>
-                        <entry><literal>jersey.config.client
-                            .httpUrlConnection.setMethodWorkaround</literal></entry>
-                        <entry>
-                            <para>
-                                Declares that the client will try to set unsupported HTTP method to <literal>HttpURLConnection</literal>
-                                via reflection. Default value is <literal>false</literal>.
                             </para>
                         </entry>
                     </row>
@@ -500,8 +513,8 @@
                         <entry>
                             <para>
                                 URI of a HTTP proxy the client connector should use. Default value is not set.
-                                <emphasis>Currently supported with &jersey.apache.ApacheConnector; and
-                                    &jersey.jetty.JettyConnector; only.</emphasis>
+                                <emphasis>Currently supported with &jersey.apache.ApacheConnectorProvider; and
+                                    &jersey.jetty.JettyConnectorProvider; only.</emphasis>
                             </para>
                         </entry>
                     </row>
@@ -511,8 +524,8 @@
                         <entry>
                             <para>
                                 User name which will be used for HTTP proxy authentication. Default value is not set.
-                                <emphasis>Currently supported with &jersey.apache.ApacheConnector; and
-                                    &jersey.jetty.JettyConnector; only.</emphasis>
+                                <emphasis>Currently supported with &jersey.apache.ApacheConnectorProvider; and
+                                    &jersey.jetty.JettyConnectorProvider; only.</emphasis>
                             </para>
                         </entry>
                     </row>
@@ -522,8 +535,8 @@
                         <entry>
                             <para>
                                 Password which will be used for HTTP proxy authentication. Default value is not set.
-                                <emphasis>Currently supported with &jersey.apache.ApacheConnector; and
-                                    &jersey.jetty.JettyConnector; only.</emphasis>
+                                <emphasis>Currently supported with &jersey.apache.ApacheConnectorProvider; and
+                                    &jersey.jetty.JettyConnectorProvider; only.</emphasis>
                             </para>
                         </entry>
                     </row>
@@ -536,6 +549,19 @@
                             </para>
                         </entry>
                     </row>
+                    <row>
+                        <entry>&jersey.client.ClientProperties.REQUEST_ENTITY_PROCESSING; (Jersey 2.5 or later)</entry>
+                        <entry><literal>jersey.config.client.request.entity.processing</literal></entry>
+                        <entry>
+                            <para>
+                                Defines whether the request entity should be serialized using internal buffer to
+                                evaluate content length or chunk encoding should be used. Possible values are
+                                <literal>BUFFERED</literal> or <literal>CHUNKED</literal>. Default value is
+                                <literal>BUFFERED</literal>.
+                            </para>
+                        </entry>
+                    </row>
+
                     <row>
                         <entry>&jersey.client.ClientProperties.SUPPRESS_HTTP_COMPLIANCE_VALIDATION;
                             (Jersey 2.2 or later)</entry>

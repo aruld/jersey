@@ -87,19 +87,13 @@ public final class ClientProperties {
     public static final String CONNECT_TIMEOUT = "jersey.config.client.connectTimeout";
 
     /**
-     * Chunked encoding size.
-     *
      * The value MUST be an instance convertible to {@link java.lang.Integer}.
      * <p />
-     * If the property is absent then chunked encoding will not be used. A value
-     * &lt= 0 declares that chunked encoding will be used with the default chunk
-     * size. A value &gt 0 declares that chunked encoding will be used with the
-     * value as the declared chunk size.
+     * The property defines the size of the chunk in bytes. The property does not enable
+     * chunked encoding (it is controlled by {@link #REQUEST_ENTITY_PROCESSING} property).
      * <p />
-     * Due to the bug in {@link java.net.HttpURLConnection} using chunk encoding
-     * with {@link HttpUrlConnector} might cause unpredictable problems.
-     * <p />
-     * A default value is not set.
+     * A default value is not set and is {@link org.glassfish.jersey.client.spi.Connector connector}
+     * implementation-specific.
      * <p />
      * The name of the configuration property is <tt>{@value}</tt>.
      */
@@ -113,7 +107,7 @@ public final class ClientProperties {
      * If the property is absent then thread pool used for async requests will
      * be initialized as default cached thread pool, which creates new thread
      * for every new request, see {@link java.util.concurrent.Executors}. When a
-     * value &gt; 0 is provided, the created cached thread pool limited to that
+     * value &gt;&nbsp;0 is provided, the created cached thread pool limited to that
      * number of threads will be utilized.
      * <p />
      * A default value is not set.
@@ -133,22 +127,6 @@ public final class ClientProperties {
      * <p>The name of the configuration property is <tt>{@value}</tt>.</p>
      */
     public static final String USE_ENCODING = "jersey.config.client.useEncoding";
-
-    /**
-     * A value of {@code true} declares that the client will try to set
-     * unsupported HTTP method to {@link java.net.HttpURLConnection} via
-     * reflection.
-     * <p>
-     * NOTE: Enabling this feature might cause security related warnings/errors
-     * and it might break when other JDK implementation is used. <b>Use only
-     * when you know what you are doing.</b>
-     * </p>
-     * <p>The value MUST be an instance of {@link java.lang.Boolean}.</p>
-     * <p>The default value is {@code false}.</p>
-     * <p>The name of the configuration property is <tt>{@value}</tt>.</p>
-     */
-    public static final String HTTP_URL_CONNECTION_SET_METHOD_WORKAROUND =
-            "jersey.config.client.httpUrlConnection.setMethodWorkaround";
 
     /**
      * If {@code true} then disable auto-discovery on the client.
@@ -310,45 +288,6 @@ public final class ClientProperties {
      */
     public static final String DIGESTAUTH_URI_CACHE_SIZELIMIT = "jersey.config.client.digestAuthUriCacheSizeLimit";
 
-    /**
-     * If {@code true}, {@link HttpUrlConnector} (if used) will assume the content length
-     * from the value of {@value javax.ws.rs.core.HttpHeaders#CONTENT_LENGTH} request
-     * header (if present).
-     * <p>
-     * When this property is enabled and the request has a valid non-zero content length
-     * value specified in its {@value javax.ws.rs.core.HttpHeaders#CONTENT_LENGTH} request
-     * header, that this value will be used as an input to the
-     * {@link java.net.HttpURLConnection#setFixedLengthStreamingMode(int)}} method call
-     * invoked on the underlying {@link java.net.HttpURLConnection connection}.
-     * This will suppress the entity buffering in the @{code HttpURLConnection},
-     * which is undesirable in certain scenarios, e.g. when streaming large entities.
-     * </p>
-     * <p>
-     * Note that the content length value defined in the request header must exactly match
-     * the real size of the entity. If the {@link javax.ws.rs.core.HttpHeaders#CONTENT_LENGTH} header
-     * is explicitly specified in a request, this property will be ignored and the
-     * request entity will be still buffered by the underlying @{code HttpURLConnection} infrastructure.
-     * </p>
-     * <p>
-     * This property also overrides the behaviour enabled by the {@link #CHUNKED_ENCODING_SIZE} property.
-     * Chunked encoding will only be used, if the size is not specified in the header of the request.
-     * </p>
-     * <p>
-     * Note that this property only applies to client run-times that are configured to use the default
-     * {@link HttpUrlConnector} as the client connector. The property is ignored by other connectors.
-     * </p>
-     * <p>
-     * The default value is {@code false}.
-     * </p>
-     * <p>
-     * The name of the configuration property is <tt>{@value}</tt>.
-     * </p>
-     *
-     * @since 2.4
-     */
-    public static final String HTTP_URL_CONNECTOR_FIX_LENGTH_STREAMING =
-            "jersey.config.client.httpUrlConnector.fixLength.streaming";
-
     // TODO Need to implement support for PROXY-* properties in other connectors
     /**
      * The property defines a URI of a HTTP proxy the client connector should use.
@@ -391,6 +330,30 @@ public final class ClientProperties {
      * @since 2.5
      */
     public static final String PROXY_PASSWORD = "jersey.config.client.proxy.password";
+    /**
+     * The property specified how the entity should be serialized to the output stream by the
+     * {@link org.glassfish.jersey.client.spi.Connector connector}; if the buffering
+     * should be used or the entity is streamed in chunked encoding.
+     * <p>
+     * The value MUST be an instance of {@link String} or an enum value {@link RequestEntityProcessing} in the case
+     * of programmatic definition of the property. Allowed values are:
+     * <ul>
+     *     <li><b>{@code BUFFERED}</b>: the entity will be buffered and content length will be send in Content-length header.</li>
+     *     <li><b>{@code CHUNKED}</b>: chunked encoding will be used and entity will be streamed.</li>
+     * </ul>
+     * </p>
+     * <p>
+     * Default value is {@code CHUNKED}. However, due to limitations some connectors can define different
+     * default value (usually if the chunked encoding cannot be properly supported on the {@code Connector}).
+     * This detail should be specified in the javadoc of particular connector. For example, {@link HttpUrlConnector}
+     * use buffering as the default mode.
+     * </p>
+     * <p>
+     * The name of the configuration property is <tt>{@value}</tt>.
+     * </p>
+     * @since 2.5
+     */
+    public static final String REQUEST_ENTITY_PROCESSING = "jersey.config.client.request.entity.processing";
 
     private ClientProperties() {
         // prevents instantiation

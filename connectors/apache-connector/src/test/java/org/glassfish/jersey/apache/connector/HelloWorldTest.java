@@ -42,12 +42,14 @@ package org.glassfish.jersey.apache.connector;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.net.ssl.SSLSession;
 import javax.ws.rs.GET;
 import javax.ws.rs.InternalServerErrorException;
 import javax.ws.rs.Path;
@@ -60,17 +62,28 @@ import javax.ws.rs.core.Application;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.apache.http.*;
-import org.apache.http.conn.*;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import javax.net.ssl.SSLSession;
+
 import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.filter.LoggingFilter;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.test.JerseyTest;
 
+import org.apache.http.HttpConnectionMetrics;
+import org.apache.http.HttpEntityEnclosingRequest;
+import org.apache.http.HttpException;
+import org.apache.http.HttpHost;
+import org.apache.http.HttpRequest;
+import org.apache.http.HttpResponse;
+import org.apache.http.conn.ClientConnectionManager;
+import org.apache.http.conn.ClientConnectionRequest;
+import org.apache.http.conn.ConnectionPoolTimeoutException;
+import org.apache.http.conn.HttpClientConnectionManager;
+import org.apache.http.conn.ManagedClientConnection;
 import org.apache.http.conn.routing.HttpRoute;
 import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.impl.conn.BasicClientConnectionManager;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.params.HttpParams;
 import org.apache.http.protocol.HttpContext;
 import org.junit.Test;
@@ -121,7 +134,7 @@ public class HelloWorldTest extends JerseyTest {
 
     @Override
     protected void configureClient(ClientConfig config) {
-        config.connector(new ApacheConnector(config));
+        config.connectorProvider(new ApacheConnectorProvider());
     }
 
     @Test
@@ -141,11 +154,13 @@ public class HelloWorldTest extends JerseyTest {
         HttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
         ClientConfig cc = new ClientConfig();
         cc.property(ApacheClientProperties.CONNECTION_MANAGER, connectionManager);
-        Client client = ClientBuilder.newClient(cc.connector(new ApacheConnector(cc.getConfiguration())));
+        cc.connectorProvider(new ApacheConnectorProvider());
+        Client client = ClientBuilder.newClient(cc);
         WebTarget target = client.target(getBaseUri());
         final int REQUESTS = 20;
         final CountDownLatch latch = new CountDownLatch(REQUESTS);
         final long tic = System.currentTimeMillis();
+        final Map<Integer, String> results = new ConcurrentHashMap<Integer, String>();
         for (int i = 0; i < REQUESTS; i++) {
             final int id = i;
             target.path(ROOT_PATH).request().async().get(new InvocationCallback<Response>() {
@@ -153,7 +168,7 @@ public class HelloWorldTest extends JerseyTest {
                 public void completed(Response response) {
                     try {
                         final String result = response.readEntity(String.class);
-                        assertEquals(HelloWorldResource.CLICHED_MESSAGE, result);
+                        results.put(id, result);
                     } finally {
                         latch.countDown();
                     }
@@ -161,7 +176,8 @@ public class HelloWorldTest extends JerseyTest {
 
                 @Override
                 public void failed(Throwable error) {
-                    error.printStackTrace();
+                    Logger.getLogger(HelloWorldTest.class.getName()).log(Level.SEVERE, "Failed on throwable", error);
+                    results.put(id, "error: " + error.getMessage());
                     latch.countDown();
                 }
             });
@@ -169,6 +185,18 @@ public class HelloWorldTest extends JerseyTest {
         latch.await(10, TimeUnit.SECONDS);
         final long toc = System.currentTimeMillis();
         Logger.getLogger(HelloWorldTest.class.getName()).info("Executed in: " + (toc - tic));
+
+        StringBuilder resultInfo = new StringBuilder("Results:\n");
+        for (int i = 0; i < REQUESTS; i++) {
+            String result = results.get(i);
+            resultInfo.append(i).append(": ").append(result).append('\n');
+        }
+        Logger.getLogger(HelloWorldTest.class.getName()).info(resultInfo.toString());
+
+        for (int i = 0; i < REQUESTS; i++) {
+            String result = results.get(i);
+            assertEquals(HelloWorldResource.CLICHED_MESSAGE, result);
+        }
     }
 
     @Test
@@ -529,7 +557,7 @@ public class HelloWorldTest extends JerseyTest {
                         cm.shutdown();
                     }
                 });
-        config.connector(new ApacheConnector(config));
+        config.connectorProvider(new ApacheConnectorProvider());
 
         final Client client = ClientBuilder.newClient(config);
         final WebTarget rootTarget = client.target(getBaseUri()).path(ROOT_PATH);

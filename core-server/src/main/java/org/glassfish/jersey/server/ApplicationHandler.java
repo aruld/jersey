@@ -269,7 +269,24 @@ public final class ApplicationHandler {
      *                    will be used to configure the new Jersey application handler.
      */
     public ApplicationHandler(Application application) {
-        this.locator = Injections.createLocator(new ServerBinder(application.getProperties()), new ApplicationBinder());
+        this(application, null);
+    }
+
+    /**
+     * Create a new Jersey server-side application handler configured by an instance
+     * of a {@link ResourceConfig} and a custom {@link Binder}.
+     *
+     * @param application an instance of a JAX-RS {@code Application} (sub-)class that
+     *                    will be used to configure the new Jersey application handler.
+     * @param customBinder additional custom bindings used during {@link ServiceLocator} creation
+     */
+    public ApplicationHandler(Application application, Binder customBinder) {
+        if (customBinder == null) {
+            this.locator = Injections.createLocator(new ServerBinder(application.getProperties()), new ApplicationBinder());
+        } else {
+            this.locator = Injections.createLocator(new ServerBinder(application.getProperties()), new ApplicationBinder(),
+                                                    customBinder);
+        }
         locator.setDefaultClassAnalyzerName(JerseyClassAnalyzer.NAME);
 
         this.application = application;
@@ -399,7 +416,7 @@ public final class ApplicationHandler {
                 componentProvider.done();
             }
             final List<ApplicationEventListener> appEventListeners = locator.getAllServices(ApplicationEventListener.class);
-            if (appEventListeners.size() > 0) {
+            if (!appEventListeners.isEmpty()) {
                 compositeListener = new CompositeApplicationEventListener(
                         appEventListeners);
                 compositeListener.onEvent(new ApplicationEventImpl(ApplicationEvent.Type.INITIALIZATION_START,
@@ -514,24 +531,36 @@ public final class ApplicationHandler {
                 messageBodyWriters = Providers.getCustomProviders(locator, MessageBodyWriter.class);
             }
 
-            printProviders(LocalizationMessages.LOGGING_PRE_MATCH_FILTERS(), processingProviders.getPreMatchFilters(), sb);
-            printProviders(LocalizationMessages.LOGGING_GLOBAL_REQUEST_FILTERS(), processingProviders.getGlobalRequestFilters(), sb);
-            printProviders(LocalizationMessages.LOGGING_GLOBAL_RESPOSE_FILTERS(), processingProviders.getGlobalResponseFilters(), sb);
-            printProviders(LocalizationMessages.LOGGING_GLOBAL_READER_INTERCEPTORS(), processingProviders.getGlobalReaderInterceptors(), sb);
-            printProviders(LocalizationMessages.LOGGING_GLOBAL_WRITER_INTERCEPTORS(), processingProviders.getGlobalWriterInterceptors(), sb);
-            printNameBoundProviders(LocalizationMessages.LOGGING_NAME_BOUND_REQUEST_FILTERS(), processingProviders.getNameBoundRequestFilters(), sb);
-            printNameBoundProviders(LocalizationMessages.LOGGING_NAME_BOUND_RESPOSE_FILTERS(), processingProviders.getNameBoundResponseFilters(), sb);
-            printNameBoundProviders(LocalizationMessages.LOGGING_NAME_BOUND_READER_INTERCEPTORS(), processingProviders.getNameBoundReaderInterceptors(), sb);
-            printNameBoundProviders(LocalizationMessages.LOGGING_NAME_BOUND_WRITER_INTERCEPTORS(), processingProviders.getNameBoundWriterInterceptors(), sb);
-            printProviders(LocalizationMessages.LOGGING_DYNAMIC_FEATURES(), processingProviders.getDynamicFeatures(), sb);
-            printProviders(LocalizationMessages.LOGGING_MESSAGE_BODY_READERS(), Collections2.transform(messageBodyReaders, new WorkersToStringTransform<MessageBodyReader>()), sb);
-            printProviders(LocalizationMessages.LOGGING_MESSAGE_BODY_WRITERS(), Collections2.transform(messageBodyWriters, new WorkersToStringTransform<MessageBodyWriter>()), sb);
+            printProviders(LocalizationMessages.LOGGING_PRE_MATCH_FILTERS(),
+                    processingProviders.getPreMatchFilters(), sb);
+            printProviders(LocalizationMessages.LOGGING_GLOBAL_REQUEST_FILTERS(),
+                    processingProviders.getGlobalRequestFilters(), sb);
+            printProviders(LocalizationMessages.LOGGING_GLOBAL_RESPOSE_FILTERS(),
+                    processingProviders.getGlobalResponseFilters(), sb);
+            printProviders(LocalizationMessages.LOGGING_GLOBAL_READER_INTERCEPTORS(),
+                    processingProviders.getGlobalReaderInterceptors(), sb);
+            printProviders(LocalizationMessages.LOGGING_GLOBAL_WRITER_INTERCEPTORS(),
+                    processingProviders.getGlobalWriterInterceptors(), sb);
+            printNameBoundProviders(LocalizationMessages.LOGGING_NAME_BOUND_REQUEST_FILTERS(),
+                    processingProviders.getNameBoundRequestFilters(), sb);
+            printNameBoundProviders(LocalizationMessages.LOGGING_NAME_BOUND_RESPOSE_FILTERS(),
+                    processingProviders.getNameBoundResponseFilters(), sb);
+            printNameBoundProviders(LocalizationMessages.LOGGING_NAME_BOUND_READER_INTERCEPTORS(),
+                    processingProviders.getNameBoundReaderInterceptors(), sb);
+            printNameBoundProviders(LocalizationMessages.LOGGING_NAME_BOUND_WRITER_INTERCEPTORS(),
+                    processingProviders.getNameBoundWriterInterceptors(), sb);
+            printProviders(LocalizationMessages.LOGGING_DYNAMIC_FEATURES(),
+                    processingProviders.getDynamicFeatures(), sb);
+            printProviders(LocalizationMessages.LOGGING_MESSAGE_BODY_READERS(),
+                    Collections2.transform(messageBodyReaders, new WorkersToStringTransform<MessageBodyReader>()), sb);
+            printProviders(LocalizationMessages.LOGGING_MESSAGE_BODY_WRITERS(),
+                    Collections2.transform(messageBodyWriters, new WorkersToStringTransform<MessageBodyWriter>()), sb);
             LOGGER.log(Level.CONFIG, sb.toString());
         }
 
         if (compositeListener != null) {
-            final ApplicationEventImpl initFinishedEvent = new ApplicationEventImpl(
-                    ApplicationEvent.Type.INITIALIZATION_FINISHED, runtimeConfig,
+            final ApplicationEvent initFinishedEvent = new ApplicationEventImpl(
+                    ApplicationEvent.Type.INITIALIZATION_APP_FINISHED, runtimeConfig,
                     componentBag.getRegistrations(), resourceBag.classes, resourceBag.instances, resourceModel);
             compositeListener.onEvent(initFinishedEvent);
 
@@ -576,12 +605,11 @@ public final class ApplicationHandler {
         }
     }
 
-
-    private List<RankedProvider<ComponentProvider>> getRankedComponentProviders() throws ServiceConfigurationError {
+    private Iterable<RankedProvider<ComponentProvider>> getRankedComponentProviders() throws ServiceConfigurationError {
         final List<RankedProvider<ComponentProvider>> result = new LinkedList<RankedProvider<ComponentProvider>>();
 
-        final boolean enableMetainfServicesLookup = ! PropertiesHelper.getValue(application.getProperties(), RuntimeType.SERVER,
-                    CommonProperties.METAINF_SERVICES_LOOKUP_DISABLE, false, Boolean.class);
+        final boolean enableMetainfServicesLookup = !PropertiesHelper.getValue(application.getProperties(), RuntimeType.SERVER,
+                CommonProperties.METAINF_SERVICES_LOOKUP_DISABLE, false, Boolean.class);
         if (enableMetainfServicesLookup) {
             for (ComponentProvider provider : ServiceFinder.find(ComponentProvider.class)) {
                 result.add(new RankedProvider<ComponentProvider>(provider));
@@ -658,7 +686,7 @@ public final class ApplicationHandler {
     }
 
     private void bindEnhancingResourceClasses(
-            ResourceModel resourceModel, ResourceBag resourceBag, Collection<ComponentProvider> componentProviders) {
+            ResourceModel resourceModel, ResourceBag resourceBag, Iterable<ComponentProvider> componentProviders) {
 
         Set<Class<?>> newClasses = Sets.newHashSet();
         Set<Object> newInstances = Sets.newHashSet();
@@ -743,10 +771,10 @@ public final class ApplicationHandler {
     }
 
     private void bindProvidersAndResources(
-            final Collection<ComponentProvider> componentProviders,
+            final Iterable<ComponentProvider> componentProviders,
             final ComponentBag componentBag,
-            final Set<Class<?>> resourceClasses,
-            final Set<Object> resourceInstances) {
+            final Collection<Class<?>> resourceClasses,
+            final Collection<Object> resourceInstances) {
 
         final JerseyResourceContext resourceContext = locator.getService(JerseyResourceContext.class);
         final DynamicConfiguration dc = Injections.getConfiguration(locator);
@@ -839,7 +867,7 @@ public final class ApplicationHandler {
     private boolean bindWithComponentProvider(
             final Class<?> component,
             final ContractProvider providerModel,
-            final Collection<ComponentProvider> componentProviders) {
+            final Iterable<ComponentProvider> componentProviders) {
 
         final Set<Class<?>> contracts = providerModel == null ? Collections.<Class<?>>emptySet() : providerModel.getContracts();
         for (ComponentProvider provider : componentProviders) {
@@ -910,8 +938,7 @@ public final class ApplicationHandler {
         }
 
         @Override
-        public OutputStream writeResponseStatusAndHeaders(long contentLength, ContainerResponse response)
-                throws ContainerException {
+        public OutputStream writeResponseStatusAndHeaders(long contentLength, ContainerResponse response) {
             this.response = response;
 
             if (contentLength >= 0) {
@@ -922,12 +949,12 @@ public final class ApplicationHandler {
         }
 
         @Override
-        public boolean suspend(long time, TimeUnit unit, final TimeoutHandler handler) throws IllegalStateException {
+        public boolean suspend(long time, TimeUnit unit, final TimeoutHandler handler) {
             return requestTimeoutHandler.suspend(time, unit, handler);
         }
 
         @Override
-        public void setSuspendTimeout(long time, TimeUnit unit) throws IllegalStateException {
+        public void setSuspendTimeout(long time, TimeUnit unit) {
             requestTimeoutHandler.setSuspendTimeout(time, unit);
         }
 

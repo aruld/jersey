@@ -37,16 +37,17 @@
  * only if the new code is made subject to such option by the copyright
  * holder.
  */
-import org.glassfish.jersey.examples.servlet3.webapp.App;
 import org.glassfish.jersey.test.JerseyTest;
 import org.glassfish.jersey.test.TestProperties;
 import org.glassfish.jersey.test.external.ExternalTestContainerFactory;
 import org.glassfish.jersey.test.spi.TestContainerException;
 import org.glassfish.jersey.test.spi.TestContainerFactory;
+
 import org.junit.Test;
 
 import javax.ws.rs.core.Application;
 import javax.ws.rs.core.UriBuilder;
+
 import java.net.URI;
 
 import static org.junit.Assert.assertEquals;
@@ -62,7 +63,7 @@ public class Servlet3WebappITCase extends JerseyTest {
     @Override
     protected Application configure() {
         enable(TestProperties.LOG_TRAFFIC);
-        return new App();
+        return new Application(); // dummy Application instance for test framework
     }
 
     @Override
