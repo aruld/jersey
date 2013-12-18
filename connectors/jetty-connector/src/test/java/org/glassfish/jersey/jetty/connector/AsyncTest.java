@@ -39,14 +39,14 @@
  */
 package org.glassfish.jersey.jetty.connector;
 
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.container.TimeoutHandler;
@@ -58,22 +58,40 @@ import org.glassfish.jersey.filter.LoggingFilter;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.test.JerseyTest;
 
+import org.hamcrest.Matchers;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 
 /**
+ * Asynchronous connector test.
+ *
  * @author Arul Dhesiaseelan (aruld at acm.org)
+ * @author Marek Potociar (marek.potociar at oracle.com)
  */
 public class AsyncTest extends JerseyTest {
-
     private static final Logger LOGGER = Logger.getLogger(AsyncTest.class.getName());
-
     private static final String PATH = "async";
 
-    @Path("/async")
+    /**
+     * Asynchronous test resource.
+     */
+    @Path(PATH)
     public static class AsyncResource {
-        @GET
-        public void asyncGet(@Suspended final AsyncResponse asyncResponse) {
+        /**
+         * Typical long-running operation duration.
+         */
+        public static final long OPERATION_DURATION = 1000;
+
+        /**
+         * Long-running asynchronous post.
+         *
+         * @param asyncResponse async response.
+         * @param id            post request id (received as request payload).
+         */
+        @POST
+        public void asyncPost(@Suspended final AsyncResponse asyncResponse, final String id) {
+            LOGGER.info("Long running post operation called with id " + id + " on thread " + Thread.currentThread().getName());
             new Thread(new Runnable() {
 
                 @Override
@@ -83,20 +101,29 @@ public class AsyncTest extends JerseyTest {
                 }
 
                 private String veryExpensiveOperation() {
-                    // ... very expensive operation that typically finishes within 5 seconds, simulated using sleep()
+                    // ... very expensive operation that typically finishes within 1 seconds, simulated using sleep()
                     try {
-                        Thread.sleep(5000);
+                        Thread.sleep(OPERATION_DURATION);
+                        return "DONE-" + id;
                     } catch (InterruptedException e) {
-                        // ignore
+                        Thread.currentThread().interrupt();
+                        return "INTERRUPTED-" + id;
+                    } finally {
+                        LOGGER.info("Long running post operation finished on thread " + Thread.currentThread().getName());
                     }
-                    return "DONE";
                 }
-            }).start();
+            }, "async-post-runner-" + id).start();
         }
 
+        /**
+         * Long-running async get request that times out.
+         *
+         * @param asyncResponse async response.
+         */
         @GET
         @Path("timeout")
         public void asyncGetWithTimeout(@Suspended final AsyncResponse asyncResponse) {
+            LOGGER.info("Async long-running get with timeout called on thread " + Thread.currentThread().getName());
             asyncResponse.setTimeoutHandler(new TimeoutHandler() {
 
                 @Override
@@ -105,7 +132,7 @@ public class AsyncTest extends JerseyTest {
                             .entity("Operation time out.").build());
                 }
             });
-            asyncResponse.setTimeout(3, TimeUnit.SECONDS);
+            asyncResponse.setTimeout(1, TimeUnit.SECONDS);
 
             new Thread(new Runnable() {
 
@@ -116,13 +143,17 @@ public class AsyncTest extends JerseyTest {
                 }
 
                 private String veryExpensiveOperation() {
-                    // ... very expensive operation that typically finishes within 10 seconds, simulated using sleep()
+                    // very expensive operation that typically finishes within 1 second but can take up to 5 seconds,
+                    // simulated using sleep()
                     try {
-                        Thread.sleep(7000);
+                        Thread.sleep(5 * OPERATION_DURATION);
+                        return "DONE";
                     } catch (InterruptedException e) {
-                        // ignore
+                        Thread.currentThread().interrupt();
+                        return "INTERRUPTED";
+                    } finally {
+                        LOGGER.info("Async long-running get with timeout finished on thread " + Thread.currentThread().getName());
                     }
-                    return "DONE";
                 }
             }).start();
         }
@@ -131,27 +162,55 @@ public class AsyncTest extends JerseyTest {
 
     @Override
     protected Application configure() {
-        ResourceConfig config = new ResourceConfig(AsyncResource.class);
-        config.register(new LoggingFilter(LOGGER, true));
-        return config;
+        return new ResourceConfig(AsyncResource.class)
+                .register(new LoggingFilter(LOGGER, true));
     }
 
     @Override
     protected void configureClient(ClientConfig config) {
+        // TODO: fails with true on request - should be fixed by resolving JERSEY-2273
+        config.register(new LoggingFilter(LOGGER, false));
         config.connectorProvider(new JettyConnectorProvider());
     }
 
+    /**
+     * Test asynchronous POST.
+     *
+     * Send 3 async POST requests and wait to receive the responses. Check the response content and
+     * assert that the operation did not take more than twice as long as a single long operation duration
+     * (this ensures async request execution).
+     *
+     * @throws Exception in case of a test error.
+     */
     @Test
-    public void testAsyncGet() throws ExecutionException, InterruptedException {
-        final Future<Response> responseFuture = target(PATH).request().async().get();
-        // Request is being processed asynchronously.
-        final Response response = responseFuture.get();
+    public void testAsyncPost() throws Exception {
+        final long tic = System.currentTimeMillis();
+
+        // Submit requests asynchronously.
+        final Future<Response> rf1 = target(PATH).request().async().post(Entity.text("1"));
+        final Future<Response> rf2 = target(PATH).request().async().post(Entity.text("2"));
+        final Future<Response> rf3 = target(PATH).request().async().post(Entity.text("3"));
         // get() waits for the response
-        assertEquals("DONE", response.readEntity(String.class));
+        final String r1 = rf1.get().readEntity(String.class);
+        final String r2 = rf2.get().readEntity(String.class);
+        final String r3 = rf3.get().readEntity(String.class);
+
+        final long toc = System.currentTimeMillis();
+
+        assertEquals("DONE-1", r1);
+        assertEquals("DONE-2", r2);
+        assertEquals("DONE-3", r3);
+
+        assertThat("Async processing took too long.", toc - tic, Matchers.lessThan(3 * AsyncResource.OPERATION_DURATION));
     }
 
+    /**
+     * Test accessing an operation that times out on the server.
+     *
+     * @throws Exception in case of a test error.
+     */
     @Test
-    public void testAsyncGetWithTimeout() throws ExecutionException, InterruptedException, TimeoutException {
+    public void testAsyncGetWithTimeout() throws Exception {
         final Future<Response> responseFuture = target(PATH).path("timeout").request().async().get();
         // Request is being processed asynchronously.
         final Response response = responseFuture.get();

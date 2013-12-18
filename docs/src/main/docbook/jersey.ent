@@ -273,11 +273,10 @@
 <!ENTITY jersey.client.ClientConfig "<link xlink:href='&jersey.javadoc.path;/client/ClientConfig.html'>ClientConfig</link>">
 <!ENTITY jersey.client.ClientProperties "<link xlink:href='&jersey.javadoc.path;/client/ClientProperties.html'>ClientProperties</link>">
 <!ENTITY jersey.client.EncodingFilter "<link xlink:href='&jersey.javadoc.path;/client/filter/EncodingFilter.html'>EncodingFilter</link>">
-<!ENTITY jersey.client.HttpBasicAuthFilter "<link xlink:href='&jersey.javadoc.path;/client/filter/HttpBasicAuthFilter.html'>HttpBasicAuthFilter</link>">
-<!ENTITY jersey.client.HttpDigestAuthFilter "<link xlink:href='&jersey.javadoc.path;/client/filter/HttpDigestAuthFilter.html'>HttpDigestAuthFilter</link>">
 <!ENTITY jersey.client.HttpUrlConnectorProvider "<link xlink:href='&jersey.javadoc.path;/client/HttpUrlConnector.html'>HttpUrlConnectorProvider</link>">
 <!ENTITY jersey.client.HttpUrlConnectorProvider.USE_FIXED_LENGTH_STREAMING "<link xlink:href='&jersey.javadoc.path;/client/HttpUrlConnectorProvider.html#USE_FIXED_LENGTH_STREAMING'>HttpUrlConnectorProvider.USE_FIXED_LENGTH_STREAMING</link>">
 <!ENTITY jersey.client.HttpUrlConnectorProvider.SET_METHOD_WORKAROUND "<link xlink:href='&jersey.javadoc.path;/client/HttpUrlConnectorProvider.html#SET_METHOD_WORKAROUND'>HttpUrlConnector.SET_METHOD_WORKAROUND</link>" >
+<!ENTITY jersey.client.HttpAuthenticationFeature "<link xlink:href='&jersey.javadoc.path;/client/authentication/HttpAuthenticationFeature.html'>HttpAuthenticationFeature</link>">
 <!ENTITY jersey.client.ClientProperties.ASYNC_THREADPOOL_SIZE "<link xlink:href='&jersey.javadoc.path;/client/ClientProperties.html#ASYNC_THREADPOOL_SIZE'>ClientProperties.ASYNC_THREADPOOL_SIZE</link>" >
 <!ENTITY jersey.client.ClientProperties.BUFFER_RESPONSE_ENTITY_ON_EXCEPTION "<link xlink:href='&jersey.javadoc.path;/client/ClientProperties.html#BUFFER_RESPONSE_ENTITY_ON_EXCEPTION'>ClientProperties.BUFFER_RESPONSE_ENTITY_ON_EXCEPTION</link>" >
 <!ENTITY jersey.client.ClientProperties.CHUNKED_ENCODING_SIZE "<link xlink:href='&jersey.javadoc.path;/client/ClientProperties.html#CHUNKED_ENCODING_SIZE'>ClientProperties.CHUNKED_ENCODING_SIZE</link>" >
@@ -398,7 +397,9 @@
 <!ENTITY jersey.server.mvc.MvcFeature "<link xlink:href='&jersey.javadoc.path;/server/mvc/MvcFeature.html'>MvcFeature</link>">
 <!ENTITY jersey.server.mvc.FreemarkerMvcFeature "<link xlink:href='&jersey.javadoc.path;/server/mvc/freemarker/FreemarkerMvcFeature.html'>FreemarkerMvcFeature</link>">
 <!ENTITY jersey.server.mvc.JspMvcFeature "<link xlink:href='&jersey.javadoc.path;/server/mvc/jsp/JspMvcFeature.html'>JspMvcFeature</link>">
+<!ENTITY jersey.server.mvc.MustacheMvcFeature "<link xlink:href='&jersey.javadoc.path;/server/mvc/mustache/MustacheMvcFeature.html'>MustacheMvcFeature</link>">
 <!ENTITY jersey.server.mvc.Template "<link xlink:href='&jersey.javadoc.path;/server/mvc/Template.html'>@Template</link>">
+<!ENTITY jersey.server.mvc.ErrorTemplate "<link xlink:href='&jersey.javadoc.path;/server/mvc/ErrorTemplate.html'>@ErrorTemplate</link>">
 <!ENTITY jersey.server.mvc.TemplateProcessor "<link xlink:href='&jersey.javadoc.path;/server/mvc/spi/TemplateProcessor.html'>TemplateProcessor</link>">
 <!ENTITY jersey.server.mvc.Viewable "<link xlink:href='&jersey.javadoc.path;/server/mvc/Viewable.html'>Viewable</link>">
 
@@ -460,8 +461,10 @@
 <!ENTITY jersey-media-moxy "<link xlink:href='&jersey.site.path;/jersey-media-moxy/dependencies.html'>jersey-media-moxy</link>" >
 <!ENTITY jersey-media-multipart "<link xlink:href='&jersey.site.path;/jersey-media-multipart/dependencies.html'>jersey-media-multipart</link>" >
 <!ENTITY jersey-mvc "<link xlink:href='&jersey.site.path;/jersey-mvc/dependencies.html'>jersey-mvc</link>" >
+<!ENTITY jersey-mvc-bean-validation "<link xlink:href='&jersey.site.path;/jersey-mvc-bean-validation/dependencies.html'>jersey-mvc-bean-validation</link>" >
 <!ENTITY jersey-mvc-freemarker "<link xlink:href='&jersey.site.path;/jersey-mvc-freemarker/dependencies.html'>jersey-mvc-freemarker</link>" >
 <!ENTITY jersey-mvc-jsp "<link xlink:href='&jersey.site.path;/jersey-mvc-jsp/dependencies.html'>jersey-mvc-jsp</link>" >
+<!ENTITY jersey-mvc-mustache "<link xlink:href='&jersey.site.path;/jersey-mvc-mustache/dependencies.html'>jersey-mvc-mustache</link>" >
 <!ENTITY jersey-spring3 "<link xlink:href='&jersey.site.path;/jersey-spring3/dependencies.html'>jersey-spring3</link>" >
 
 <!-- Jersey GitHub links -->
@@ -659,9 +662,8 @@
 <!ENTITY lit.jersey.client.ClientConfig "<literal>ClientConfig</literal>">
 <!ENTITY lit.jersey.client.ContentEncoder "<literal>ContentEncoder</literal>">
 <!ENTITY lit.jersey.client.CsrfProtectionFilter "<literal>CsrfProtectionFilter</literal>">
-<!ENTITY lit.jersey.client.HttpBasicAuthFilter "<literal>HttpBasicAuthFilter</literal>">
-<!ENTITY lit.jersey.client.HttpDigestAuthFilter "<literal>HttpDigestAuthFilter</literal>">
 <!ENTITY lit.jersey.client.HttpUrlConnectorProvider "<literal>HttpUrlConnectorProvider</literal>">
+<!ENTITY lit.jersey.client.HttpAuthenticationFeature "<literal>HttpAuthenticationFeature</literal>">
 <!ENTITY lit.jersey.client.EncodingFeature "<literal>EncodingFeature</literal>">
 
 <!ENTITY lit.jersey.message.MessageProperties "<literal>MessageProperties</literal>">
@@ -715,6 +717,7 @@
 <!ENTITY lit.jersey.server.mvc.FreemarkerMvcFeature "<literal>FreemarkerMvcFeature</literal>">
 <!ENTITY lit.jersey.server.mvc.JspMvcFeature "<literal>JspMvcFeature</literal>">
 <!ENTITY lit.jersey.server.mvc.MvcFeature "<literal>MvcFeature</literal>">
+<!ENTITY lit.jersey.server.mvc.ErrorTemplate "<literal>@ErrorTemplate</literal>">
 <!ENTITY lit.jersey.server.mvc.Template "<literal>@Template</literal>">
 <!ENTITY lit.jersey.server.mvc.TemplateProcessor "<literal>TemplateProcessor</literal>">
 <!ENTITY lit.jersey.server.mvc.Viewable "<literal>Viewable</literal>">

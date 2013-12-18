@@ -103,18 +103,24 @@ public final class ClientProperties {
      * Asynchronous thread pool size.
      *
      * The value MUST be an instance of {@link java.lang.Integer}.
-     * <p />
+     * <p>
      * If the property is absent then thread pool used for async requests will
      * be initialized as default cached thread pool, which creates new thread
      * for every new request, see {@link java.util.concurrent.Executors}. When a
      * value &gt;&nbsp;0 is provided, the created cached thread pool limited to that
-     * number of threads will be utilized.
-     * <p />
+     * number of threads will be utilized. Zero or negative values will be ignored.
+     * </p>
+     * <p>
+     * Note that the property is ignored if a custom {@link org.glassfish.jersey.spi.RequestExecutorProvider}
+     * is configured in the client runtime.
+     * </p>
+     * <p>
      * A default value is not set.
-     * <p />
+     * </p>
+     * <p>
      * The name of the configuration property is <tt>{@value}</tt>.
+     * </p>
      */
-    // TODO add support in default connector (ported from Jersey 1.x);
     public static final String ASYNC_THREADPOOL_SIZE = "jersey.config.client.async.threadPoolSize";
 
     /**
@@ -271,7 +277,8 @@ public final class ClientProperties {
 
     /**
      * The property defines the size of digest cache in the
-     * {@link org.glassfish.jersey.client.filter.HttpDigestAuthFilter}. Cache contains authentication
+     * {@link org.glassfish.jersey.client.authentication.HttpAuthenticationFeature#digest()}  digest filter}.
+     * Cache contains authentication
      * schemes for different request URIs.
      * <p\>
      * The value MUST be an instance of {@link java.lang.Integer} and it must be

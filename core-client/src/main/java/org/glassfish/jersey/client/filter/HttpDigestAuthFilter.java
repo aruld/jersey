@@ -83,6 +83,9 @@ import org.glassfish.jersey.internal.util.PropertiesHelper;
  * Client filter providing HTTP Digest Authentication with preemptive
  * authentication support.
  * <p>
+ * This filter is deprecated. Use {@link org.glassfish.jersey.client.authentication.HttpAuthenticationFeature} instead.
+ * </p>
+ * <p>
  * This filter is the main class that adds a support for Http Digest Authentication on the client.
  * In order to use this filter, create an instance of the filter and register it to the {@link Client client}.
  * </p>
@@ -117,6 +120,7 @@ import org.glassfish.jersey.internal.util.PropertiesHelper;
  * @author raphael.jolivet@gmail.com
  * @author Stefan Katerkamp (stefan@katerkamp.de)
  * @since 2.3
+ * @deprecated since 2.5: use {@link org.glassfish.jersey.client.authentication.HttpAuthenticationFeature} instead.
  */
 @Provider
 public class HttpDigestAuthFilter implements ClientRequestFilter, ClientResponseFilter {
