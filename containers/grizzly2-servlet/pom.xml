@@ -46,12 +46,14 @@
     <parent>
         <groupId>org.glassfish.jersey.containers</groupId>
         <artifactId>project</artifactId>
-        <version>2.5-SNAPSHOT</version>
+        <version>2.5.1-SNAPSHOT</version>
     </parent>
 
     <artifactId>jersey-container-grizzly2-servlet</artifactId>
     <packaging>jar</packaging>
     <name>jersey-container-grizzly2-servlet</name>
+
+    <description>Grizzly 2 Servlet Container.</description>
 
     <dependencies>
         <dependency>

@@ -48,12 +48,14 @@
     <parent>
         <groupId>org.glassfish.jersey.examples</groupId>
         <artifactId>project</artifactId>
-        <version>2.5-SNAPSHOT</version>
+        <version>2.5.1-SNAPSHOT</version>
     </parent>
 
     <artifactId>osgi-http-service</artifactId>
     <name>jersey-examples-osgi-http-service</name>
     <packaging>pom</packaging>
+
+    <description>OSGi HttpService example</description>
 
     <modules>
         <module>bundle</module>
