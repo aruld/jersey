@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -45,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.ws.rs.Priorities;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
@@ -58,11 +57,13 @@ import javax.annotation.Priority;
 import javax.inject.Inject;
 import javax.inject.Provider;
 
+import org.glassfish.jersey.JerseyPriorities;
+import org.glassfish.jersey.message.MessageUtils;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.JSONP;
 
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
+import jersey.repackaged.com.google.common.collect.Maps;
+import jersey.repackaged.com.google.common.collect.Sets;
 
 /**
  * A {@link WriterInterceptor} implementation for JSONP format. This interceptor wraps a JSON stream obtained by a underlying
@@ -71,7 +72,9 @@ import com.google.common.collect.Sets;
  * @author Michal Gajdos (michal.gajdos at oracle.com)
  * @see JSONP
  */
-@Priority(Priorities.HEADER_DECORATOR)
+@Priority(JerseyPriorities.POST_ENTITY_CODER)
+// this interceptor has to run after content encoders (e.g. gzip/deflate), otherwise the added content (padding with the callback
+// method call would not be encoded.
 public class JsonWithPaddingInterceptor implements WriterInterceptor {
 
     private static final Map<String, Set<String>> JAVASCRIPT_TYPES;
@@ -96,7 +99,7 @@ public class JsonWithPaddingInterceptor implements WriterInterceptor {
         if (wrapIntoCallback) {
             context.setMediaType(MediaType.APPLICATION_JSON_TYPE);
 
-            context.getOutputStream().write(getCallbackName(jsonp).getBytes());
+            context.getOutputStream().write(getCallbackName(jsonp).getBytes(MessageUtils.getCharset(context.getMediaType())));
             context.getOutputStream().write('(');
         }
 
@@ -114,7 +117,7 @@ public class JsonWithPaddingInterceptor implements WriterInterceptor {
      * @return {@code true} if the given media type is a JavaScript type, {@code false} otherwise (or if the media type is
      *         {@code null}}
      */
-    private boolean isJavascript(MediaType mediaType) {
+    private boolean isJavascript(final MediaType mediaType) {
         if (mediaType == null) {
             return false;
         }
@@ -156,7 +159,7 @@ public class JsonWithPaddingInterceptor implements WriterInterceptor {
         final Annotation[] annotations = context.getAnnotations();
 
         if (annotations != null && annotations.length > 0) {
-            for (Annotation annotation : annotations) {
+            for (final Annotation annotation : annotations) {
                 if (annotation instanceof JSONP) {
                     return (JSONP) annotation;
                 }

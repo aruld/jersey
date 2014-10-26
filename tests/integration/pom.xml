@@ -3,7 +3,7 @@
 
     DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 
-    Copyright (c) 2011-2013 Oracle and/or its affiliates. All rights reserved.
+    Copyright (c) 2011-2014 Oracle and/or its affiliates. All rights reserved.
 
     The contents of this file are subject to the terms of either the GNU
     General Public License Version 2 only ("GPL") or the Common Development
@@ -46,7 +46,7 @@
     <parent>
         <groupId>org.glassfish.jersey.tests</groupId>
         <artifactId>project</artifactId>
-        <version>2.5.1-SNAPSHOT</version>
+        <version>2.14-SNAPSHOT</version>
     </parent>
 
     <groupId>org.glassfish.jersey.tests.integration</groupId>
@@ -56,8 +56,13 @@
 
     <modules>
         <module>cdi-ejb-test-webapp</module>
+        <module>cdi-multipart-webapp</module>
         <module>cdi-test-webapp</module>
+        <module>cdi-with-jersey-injection-webapp</module>
         <module>ejb-test-webapp</module>
+        <module>ejb-jax-rs-ear1</module>
+        <module>ejb-jax-rs-web1</module>
+        <module>ejb-lib</module>
         <module>jersey-780</module>
         <module>jersey-1107</module>
         <module>jersey-1223</module>
@@ -69,13 +74,25 @@
         <module>jersey-1964</module>
         <module>jersey-2031</module>
         <module>jersey-2136</module>
+        <module>jersey-2137</module>
         <module>jersey-2154</module>
         <module>jersey-2160</module>
         <module>jersey-2164</module>
+        <module>jersey-2167</module>
         <module>jersey-2176</module>
         <module>jersey-2184</module>
+        <module>jersey-2255</module>
+        <module>jersey-2322</module>
+        <module>jersey-2335</module>
+        <module>jersey-2421</module>
+        <module>jersey-2551</module>
+        <module>jersey-2612</module>
+        <module>j-59-ejb-lib</module>
+        <module>j-59-cdi-war</module>
+        <module>j-59-ear</module>
         <module>portability-jersey-1</module>
         <module>portability-jersey-2</module>
+        <module>property-check</module>
         <module>security-digest</module>
         <module>servlet-2.5-autodiscovery-1</module>
         <module>servlet-2.5-autodiscovery-2</module>
@@ -93,12 +110,15 @@
         <module>servlet-2.5-mvc-3</module>
         <module>servlet-2.5-reload</module>
         <module>servlet-3-async</module>
+        <module>servlet-3-gf-async</module>
         <module>servlet-3-inflector-1</module>
         <module>servlet-3-init-1</module>
         <module>servlet-3-init-2</module>
         <module>servlet-3-init-3</module>
         <module>servlet-3-init-4</module>
         <module>servlet-3-init-5</module>
+        <module>servlet-3-init-6</module>
+        <module>servlet-3-init-7</module>
         <module>servlet-3-init-provider</module>
         <module>servlet-3-params</module>
         <module>servlet-3-chunked-io</module>

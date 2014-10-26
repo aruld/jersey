@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -42,6 +42,8 @@ package org.glassfish.jersey.moxy.json.internal;
 
 import javax.ws.rs.core.FeatureContext;
 
+import javax.annotation.Priority;
+
 import org.glassfish.jersey.internal.spi.AutoDiscoverable;
 import org.glassfish.jersey.moxy.json.MoxyJsonFeature;
 
@@ -50,6 +52,7 @@ import org.glassfish.jersey.moxy.json.MoxyJsonFeature;
  *
  * @author Michal Gajdos (michal.gajdos at oracle.com)
  */
+@Priority(AutoDiscoverable.DEFAULT_PRIORITY - 100)
 public final class MoxyJsonAutoDiscoverable implements AutoDiscoverable {
 
     @Override

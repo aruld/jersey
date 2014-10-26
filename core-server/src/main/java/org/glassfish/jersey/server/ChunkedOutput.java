@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -48,16 +48,15 @@ import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingDeque;
 
+import javax.ws.rs.container.ConnectionCallback;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.ext.WriterInterceptor;
 
-import javax.inject.Provider;
-
+import org.glassfish.jersey.internal.util.collection.Value;
 import org.glassfish.jersey.process.internal.RequestScope;
 import org.glassfish.jersey.server.internal.LocalizationMessages;
 import org.glassfish.jersey.server.internal.process.AsyncContext;
 import org.glassfish.jersey.server.internal.process.MappableException;
-import org.glassfish.jersey.server.internal.routing.UriRoutingContext;
 
 /**
  * Used for sending messages in "typed" chunks. Useful for long running processes,
@@ -70,9 +69,9 @@ import org.glassfish.jersey.server.internal.routing.UriRoutingContext;
  */
 // TODO:  something like prequel/sequel - usable for EventChannelWriter and XML related writers
 public class ChunkedOutput<T> extends GenericType<T> implements Closeable {
-    private static final byte[] NO_DELIM = new byte[0];
+    private static final byte[] ZERO_LENGTH_DELIMITER = new byte[0];
 
-    private final BlockingDeque<T> queue = new LinkedBlockingDeque<T>();
+    private final BlockingDeque<T> queue = new LinkedBlockingDeque<>();
     private final byte[] chunkDelimiter;
 
     private volatile boolean closed = false;
@@ -81,15 +80,14 @@ public class ChunkedOutput<T> extends GenericType<T> implements Closeable {
     private volatile RequestScope.Instance requestScopeInstance;
     private volatile ContainerRequest requestContext;
     private volatile ContainerResponse responseContext;
-    private volatile ServerRuntime.ConnectionCallbackRunner connectionCallbackRunner;
-    private volatile Provider<AsyncContext> asyncContext;
-    private volatile UriRoutingContext uriRoutingContext;
+    private volatile ConnectionCallback connectionCallback;
+    private volatile Value<AsyncContext> asyncContext;
 
     /**
      * Create new {@code ChunkedOutput}.
      */
     protected ChunkedOutput() {
-        this.chunkDelimiter = NO_DELIM;
+        this.chunkDelimiter = ZERO_LENGTH_DELIMITER;
     }
 
     /**
@@ -99,7 +97,7 @@ public class ChunkedOutput<T> extends GenericType<T> implements Closeable {
      */
     public ChunkedOutput(final Type chunkType) {
         super(chunkType);
-        this.chunkDelimiter = NO_DELIM;
+        this.chunkDelimiter = ZERO_LENGTH_DELIMITER;
     }
 
     /**
@@ -113,7 +111,7 @@ public class ChunkedOutput<T> extends GenericType<T> implements Closeable {
             this.chunkDelimiter = new byte[chunkDelimiter.length];
             System.arraycopy(chunkDelimiter, 0, this.chunkDelimiter, 0, chunkDelimiter.length);
         } else {
-            this.chunkDelimiter = NO_DELIM;
+            this.chunkDelimiter = ZERO_LENGTH_DELIMITER;
         }
     }
 
@@ -130,7 +128,7 @@ public class ChunkedOutput<T> extends GenericType<T> implements Closeable {
             this.chunkDelimiter = new byte[chunkDelimiter.length];
             System.arraycopy(chunkDelimiter, 0, this.chunkDelimiter, 0, chunkDelimiter.length);
         } else {
-            this.chunkDelimiter = NO_DELIM;
+            this.chunkDelimiter = ZERO_LENGTH_DELIMITER;
         }
     }
 
@@ -142,7 +140,7 @@ public class ChunkedOutput<T> extends GenericType<T> implements Closeable {
      */
     protected ChunkedOutput(String chunkDelimiter) {
         if (chunkDelimiter.isEmpty()) {
-            this.chunkDelimiter = NO_DELIM;
+            this.chunkDelimiter = ZERO_LENGTH_DELIMITER;
         } else {
             this.chunkDelimiter = chunkDelimiter.getBytes();
         }
@@ -158,7 +156,7 @@ public class ChunkedOutput<T> extends GenericType<T> implements Closeable {
     public ChunkedOutput(final Type chunkType, String chunkDelimiter) {
         super(chunkType);
         if (chunkDelimiter.isEmpty()) {
-            this.chunkDelimiter = NO_DELIM;
+            this.chunkDelimiter = ZERO_LENGTH_DELIMITER;
         } else {
             this.chunkDelimiter = chunkDelimiter.getBytes();
         }
@@ -232,7 +230,8 @@ public class ChunkedOutput<T> extends GenericType<T> implements Closeable {
                                     // no need to intercept the individual chunks.
                                     Collections.<WriterInterceptor>emptyList());
 
-                            if (chunkDelimiter != NO_DELIM) {
+                            //noinspection ArrayEquality
+                            if (chunkDelimiter != ZERO_LENGTH_DELIMITER) {
                                 // if the chunked output is configured with a custom delimiter, use it
                                 writtenStream.write(chunkDelimiter);
                             }
@@ -245,11 +244,11 @@ public class ChunkedOutput<T> extends GenericType<T> implements Closeable {
                                 responseContext.setEntityStream(writtenStream);
                             }
                         } catch (IOException ioe) {
-                            connectionCallbackRunner.onDisconnect(asyncContext.get());
+                            connectionCallback.onDisconnect(asyncContext.get());
                             throw ioe;
                         } catch (MappableException mpe) {
                             if (mpe.getCause() instanceof IOException) {
-                                connectionCallbackRunner.onDisconnect(asyncContext.get());
+                                connectionCallback.onDisconnect(asyncContext.get());
                             }
                             throw mpe;
                         }
@@ -354,25 +353,22 @@ public class ChunkedOutput<T> extends GenericType<T> implements Closeable {
      * @param requestScopeInstance     current request scope instance.
      * @param requestContext           request context.
      * @param responseContext          response context.
-     * @param connectionCallbackRunner connection callback runner.
+     * @param connectionCallbackRunner connection callback.
      * @param asyncContext             async context value.
-     * @param uriRoutingContext        URI routing context.
      * @throws IOException when encountered any problem during serializing or writing a chunk.
      */
     void setContext(final RequestScope requestScope,
                     final RequestScope.Instance requestScopeInstance,
                     final ContainerRequest requestContext,
                     final ContainerResponse responseContext,
-                    final ServerRuntime.ConnectionCallbackRunner connectionCallbackRunner,
-                    final Provider<AsyncContext> asyncContext,
-                    final UriRoutingContext uriRoutingContext) throws IOException {
+                    final ConnectionCallback connectionCallbackRunner,
+                    final Value<AsyncContext> asyncContext) throws IOException {
         this.requestScope = requestScope;
         this.requestScopeInstance = requestScopeInstance;
         this.requestContext = requestContext;
         this.responseContext = responseContext;
-        this.connectionCallbackRunner = connectionCallbackRunner;
+        this.connectionCallback = connectionCallbackRunner;
         this.asyncContext = asyncContext;
-        this.uriRoutingContext = uriRoutingContext;
         flushQueue();
     }
 }

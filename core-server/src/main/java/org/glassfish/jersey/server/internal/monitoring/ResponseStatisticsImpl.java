@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -37,29 +37,32 @@
  * only if the new code is made subject to such option by the copyright
  * holder.
  */
-
 package org.glassfish.jersey.server.internal.monitoring;
 
 import java.util.Map;
 
 import org.glassfish.jersey.server.monitoring.ResponseStatistics;
 
-import com.google.common.collect.Maps;
+import jersey.repackaged.com.google.common.collect.Maps;
 
 /**
  * @author Miroslav Fuksa (miroslav.fuksa at oracle.com)
- *
  */
-class ResponseStatisticsImpl implements ResponseStatistics {
+final class ResponseStatisticsImpl implements ResponseStatistics {
+
     private final Map<Integer, Long> responseCodes;
     private final Integer lastResponseCode;
 
-
     static class Builder {
-        private Map<Integer, Long> responseCodes = Maps.newHashMap();
+
+        private final Map<Integer, Long> responseCodes = Maps.newHashMap();
         private Integer lastResponseCode = null;
 
-        void addResponseCode(int responseCode) {
+        private ResponseStatisticsImpl cached = null;
+
+        void addResponseCode(final int responseCode) {
+            cached = null;
+
             lastResponseCode = responseCode;
             Long currentValue = responseCodes.get(responseCode);
             if (currentValue == null) {
@@ -69,12 +72,15 @@ class ResponseStatisticsImpl implements ResponseStatistics {
         }
 
         ResponseStatisticsImpl build() {
-            return new ResponseStatisticsImpl(lastResponseCode, responseCodes);
+            if (cached == null) {
+                cached = new ResponseStatisticsImpl(lastResponseCode, responseCodes);
+            }
+            return cached;
         }
 
     }
 
-    private ResponseStatisticsImpl(Integer lastResponseCode, Map<Integer, Long> responseCodes) {
+    private ResponseStatisticsImpl(final Integer lastResponseCode, final Map<Integer, Long> responseCodes) {
         this.lastResponseCode = lastResponseCode;
         this.responseCodes = responseCodes;
     }

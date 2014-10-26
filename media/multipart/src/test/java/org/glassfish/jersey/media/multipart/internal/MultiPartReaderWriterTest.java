@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -42,11 +42,13 @@ package org.glassfish.jersey.media.multipart.internal;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.ParseException;
+import java.util.Collections;
 import java.util.Set;
 
 import javax.ws.rs.ProcessingException;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
@@ -55,13 +57,11 @@ import org.glassfish.jersey.media.multipart.BodyPart;
 import org.glassfish.jersey.media.multipart.BodyPartEntity;
 import org.glassfish.jersey.media.multipart.MultiPart;
 
-import org.junit.Ignore;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
-
-import com.google.common.collect.Sets;
 
 /**
  * Unit tests for {@link org.glassfish.jersey.media.multipart.internal.MultiPartReaderClientSide} (in the client) and
@@ -69,9 +69,29 @@ import com.google.common.collect.Sets;
  */
 public class MultiPartReaderWriterTest extends MultiPartJerseyTest {
 
+    private static Path TMP_DIRECTORY;
+    private static String ORIGINAL_TMP_DIRECTORY;
+
+    @BeforeClass
+    public static void beforeClass() throws IOException {
+        ORIGINAL_TMP_DIRECTORY = System.getProperty("java.io.tmpdir");
+
+        TMP_DIRECTORY = Files.createTempDirectory(MultiPartReaderWriterTest.class.getName());
+        System.setProperty("java.io.tmpdir", TMP_DIRECTORY.toString());
+    }
+
+    @AfterClass
+    public static void afterClass() throws IOException {
+        try {
+            Files.delete(TMP_DIRECTORY);
+        } finally {
+            System.setProperty("java.io.tmpdir", ORIGINAL_TMP_DIRECTORY);
+        }
+    }
+
     @Override
     protected Set<Class<?>> getResourceClasses() {
-        return Sets.<Class<?>>newHashSet(MultiPartResource.class);
+        return Collections.<Class<?>>singleton(MultiPartResource.class);
     }
 
     @Test
@@ -280,6 +300,18 @@ public class MultiPartReaderWriterTest extends MultiPartJerseyTest {
                 bodyPart("CONTENT", MediaType.TEXT_PLAIN_TYPE);
         String response = target.request("multipart/mixed").put(Entity.entity(entity, "multipart/mixed"), String.class);
         assertEquals("cleanup", response);
+    }
+
+    /**
+     * Test for JERSEY-2515 - Jersey should not leave any temporary files after verifying that it is possible
+     * to create files in java.io.tmpdir.
+     */
+    @Test
+    @SuppressWarnings("ConstantConditions")
+    public void shouldNotBeAnyTemporaryFiles() {
+        // Make sure the MBR is initialized on the client-side as well.
+        target().request().get();
+        assertEquals(0, TMP_DIRECTORY.toFile().listFiles().length);
     }
 
     private void checkEntity(String expected, BodyPartEntity entity) throws IOException {

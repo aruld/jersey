@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -47,6 +47,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.inject.Inject;
+import javax.inject.Provider;
 import javax.ws.rs.ProcessingException;
 
 import javax.management.JMException;
@@ -54,14 +56,14 @@ import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
 import org.glassfish.jersey.server.internal.LocalizationMessages;
-import org.glassfish.jersey.server.monitoring.ApplicationStatistics;
+import org.glassfish.jersey.server.monitoring.ApplicationInfo;
 import org.glassfish.jersey.server.monitoring.MonitoringStatistics;
 import org.glassfish.jersey.server.monitoring.MonitoringStatisticsListener;
 import org.glassfish.jersey.server.monitoring.ResourceStatistics;
 import org.glassfish.jersey.server.spi.AbstractContainerLifecycleListener;
 import org.glassfish.jersey.server.spi.Container;
 
-import com.google.common.collect.Maps;
+import jersey.repackaged.com.google.common.collect.Maps;
 
 /**
  * The main exposer class of Jersey JMX MBeans. The class creates MBeans and contains methods that
@@ -71,9 +73,11 @@ import com.google.common.collect.Maps;
  */
 public class MBeanExposer extends AbstractContainerLifecycleListener implements MonitoringStatisticsListener {
 
+    private static final Logger LOGGER = Logger.getLogger(MBeanExposer.class.getName());
     private static final String PROPERTY_SUBTYPE_GLOBAL = "Global";
     static final String PROPERTY_EXECUTION_TIMES_REQUESTS = "RequestTimes";
     static final String PROPERTY_EXECUTION_TIMES_METHODS = "MethodTimes";
+
     // MBeans
     private volatile ExecutionStatisticsDynamicBean requestMBean;
     private volatile ResponseMXBeanImpl responseMXBean;
@@ -90,7 +94,8 @@ public class MBeanExposer extends AbstractContainerLifecycleListener implements 
      */
     private volatile String domain;
 
-    private static final Logger LOGGER = Logger.getLogger(MBeanExposer.class.getName());
+    @Inject
+    private Provider<ApplicationInfo> applicationInfoProvider;
 
 
     private Map<String, ResourceStatistics> transformToStringKeys(Map<Class<?>, ResourceStatistics> stats) {
@@ -99,6 +104,27 @@ public class MBeanExposer extends AbstractContainerLifecycleListener implements 
             newMap.put(entry.getKey().getName(), entry.getValue());
         }
         return newMap;
+    }
+
+    /**
+     * Convert the resource name to a valid {@link javax.management.ObjectName object name}.
+     * @param name Resource name.
+     * @param isUri {@code true} if the resource name is an URI.
+     *
+     * @return Converted valid object name.
+     */
+    static String convertToObjectName(String name, boolean isUri) {
+        if (!isUri) {
+            return name;
+        }
+
+        String str = name.replace("\\", "\\\\");
+        str = str.replace("?", "\\?");
+        str = str.replace("*", "\\*");
+        StringBuilder sb = new StringBuilder();
+        sb.append("\"").append(str).append("\"");
+
+        return sb.toString();
     }
 
     /**
@@ -158,7 +184,7 @@ public class MBeanExposer extends AbstractContainerLifecycleListener implements 
         if (domain == null) {
             final String globalSubType = ",subType=" + PROPERTY_SUBTYPE_GLOBAL;
 
-            final ApplicationStatistics appStats = statistics.getApplicationStatistics();
+            final ApplicationInfo appStats = applicationInfoProvider.get();
             String appName = appStats.getResourceConfig().getApplicationName();
             if (appName == null) {
                 appName = "App_" + Integer.toHexString(appStats.getResourceConfig().hashCode());

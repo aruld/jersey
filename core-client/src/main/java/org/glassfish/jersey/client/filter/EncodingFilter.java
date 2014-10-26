@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -58,7 +58,7 @@ import org.glassfish.jersey.spi.ContentEncoder;
 
 import org.glassfish.hk2.api.ServiceLocator;
 
-import com.google.common.collect.Sets;
+import jersey.repackaged.com.google.common.collect.Sets;
 
 /**
  * Client filter adding support for {@link org.glassfish.jersey.spi.ContentEncoder content encoding}. The filter adds
@@ -92,8 +92,10 @@ public final class EncodingFilter implements ClientRequestFilter {
                 Logger.getLogger(getClass().getName()).warning(LocalizationMessages.USE_ENCODING_IGNORED(
                         ClientProperties.USE_ENCODING, useEncoding, getSupportedEncodings()));
             } else {
-                if (request.getHeaders().getFirst(HttpHeaders.CONTENT_ENCODING) == null) {
-                    request.getHeaders().putSingle(HttpHeaders.CONTENT_ENCODING, useEncoding);
+                if (request.hasEntity()) {   // don't add Content-Encoding header for requests with no entity
+                    if (request.getHeaders().getFirst(HttpHeaders.CONTENT_ENCODING) == null) {
+                        request.getHeaders().putSingle(HttpHeaders.CONTENT_ENCODING, useEncoding);
+                    }
                 }
             }
         }

@@ -3,7 +3,7 @@
 
     DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 
-    Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+    Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
 
     The contents of this file are subject to the terms of either the GNU
     General Public License Version 2 only ("GPL") or the Common Development
@@ -52,6 +52,641 @@
          xml:id="migration">
     <title>Migration Guide</title>
 
+    <section xml:id="mig-2.12">
+        <title>Migrating from Jersey 2.11 to 2.12</title>
+        <section xml:id="mig-2.12-highlights">
+            <title>Release 2.12 Highlights</title>
+            <para>Following experimental APIs have been promoted to become part of public Jersey API:
+                <itemizedlist>
+                    <listitem>
+                        <para>
+                            Jersey client-side &jersey.client.HttpAuthenticationFeature; API.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            Jersey server-side &jersey.server.monitoring.DestroyListener; (formerly
+                            <literal>ExtendedMonitoringStatisticsListener</literal>), which has been slightly refactored and
+                            is now a separate interface (e.g. not extending <literal>MonitoringStatisticsListener</literal>),
+                            hence providing better compatibility with lambdas.
+                        </para>
+                    </listitem>
+                </itemizedlist>
+                These APIs are now part of the official public Jersey 2.x API.
+            </para>
+        </section>
+        <section xml:id="mig-2.12-breaking-changes">
+            <title>Breaking Changes</title>
+            <para>
+                <itemizedlist>
+                    <listitem>
+                        <para>
+                            Because of a bug fix for issue
+                            <link xlink:href='https://java.net/jira/browse/JERSEY-2602'>JERSEY-2602</link>, we re-generate WADL
+                            classes from <literal>wadl.xsd</literal> to make sure the getters for boolean properties starts with
+                            <literal>is</literal> instead of <literal>get</literal> as in Jersey 1 and Jersey &lt;= 2.6.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            For performance purposes a new server property &jersey.server.ServerProperties.MONITORING_ENABLED;
+                            has been introduced. It is possible to enable just basic almost static monitoring information using the
+                            property. It allows to inject &jersey.server.monitoring.ApplicationInfo; object,
+                            renamed original class <literal>org.glassfish.jersey.server.monitoring.ApplicationStatistics</literal>.
+                            And &jersey.server.monitoring.MonitoringStatistics; no more
+                            have a reference to <literal>ApplicationStatistics</literal>, method
+                            <literal>getApplicationStatistics()</literal> has been removed.
+                        </para>
+    gitc                </listitem>
+                </itemizedlist>
+            </para>
+        </section>
+    </section>
+
+    <section xml:id="mig-2.11">
+        <title>Migrating from Jersey 2.10 to 2.11</title>
+
+        <section xml:id="mig-2.11-highlights">
+            <title>Release 2.11 Highlights</title>
+
+            <section>
+                <title>Promoted Public Beta APIs</title>
+
+                <para>
+                    Several experimental Jersey APIs have matured enough and as such we have decided to promote them
+                    from &jersey.common.Beta; status, namely:
+
+                    <itemizedlist>
+                        <listitem>
+                            <para>
+                                Jersey client-side &jersey.client.ConnectorProvider; SPI.
+                            </para>
+                        </listitem>
+                        <listitem>
+                            <para>
+                                Jersey server-side &jersey.server.ResponseErrorMapper; SPI.
+                            </para>
+                        </listitem>
+                    </itemizedlist>
+
+                    These APIs are now part of the official public Jersey 2.x API.
+                </para>
+            </section>
+            <section>
+                <title>Not closing provided streams in message body providers</title>
+
+                <para>
+                    Jersey is now preventing message body providers (MBR, MBW) from closing given input/output stream. With this
+                    change Jersey is enforcing the JavaDoc statements present in message body providers.
+                </para>
+            </section>
+            <section>
+                <title>Jackson 1</title>
+
+                <para>
+                    We have reintroduced support for JSON processing via Jackson 1.x JSON provider (1.9.11). In order to use
+                    Jackson 1 in your application you need to add <literal>jersey-media-json-jackson1</literal>  module (+ it's
+                    dependencies) to your class-path and register <literal>Jackson1Feature</literal> in your application (server
+                    or client).
+                </para>
+            </section>
+            <section>
+                <title>ClientLifecycleListener</title>
+                <para>
+                    Client-side providers (such as<literal>ClientRequestFilter</literal>s) implementing the new
+                    <literal>org.glassfish.jersey.client.ClientLifecycleListener</literal> interface will be notified when
+                    various lifecycle events occur. Currently client runtime initialization triggers the
+                    <literal>onInit()</literal> method and client closing triggers <literal>onClose()</literal> method.
+                    Such providers implementing the <literal>ClientLifecycleListener</literal> can be registered in a common
+                    way, e.g. into a <literal>JerseyClient</literal> or <literal>JerseyWebTarget</literal> instance, or into a
+                    (potentially) auto discoverable feature context.
+                </para>
+            </section>
+        </section>
+    </section>
+
+    <section xml:id="mig-2.10">
+        <title>Migrating from Jersey 2.9 to 2.10</title>
+
+        <section xml:id="mig-2.10-removed-deprecated">
+            <title>Removed deprecated APIs</title>
+            <para>Following, already deprecated, APIs were removed:</para>
+            <para>
+                <itemizedlist>
+                    <listitem>
+                        <para>
+                            <literal>org.glassfish.jersey.server.model.ResourceModelContext</literal>
+                            (not used)
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            <literal>org.glassfish.jersey.server.model.ResourceModelListener</literal>
+                            (not used)
+                        </para>
+                    </listitem>
+                </itemizedlist>
+            </para>
+        </section>
+    </section>
+
+    <section xml:id="mig-2.9">
+        <title>Migrating from Jersey 2.8 to 2.9</title>
+
+        <section xml:id="mig-2.9-highlights">
+            <title>Release 2.9 Highlights</title>
+
+            <section>
+                <title>Declarative Linking</title>
+
+                <para>
+                    Gerard updated the Declarative Linking extension module which has been ported to Jersey 2 in version 2.6. You
+                    can read more about what Declarative Linking does and what it's capable of in the following blog posts:
+
+                    <itemizedlist>
+                        <listitem>
+                            <para>
+                                <link xlink:href='http://kingsfleet.blogspot.co.uk/2014/05/declarative-linking-in-jersey-29.html'>Declarative Linking in Jersey 2.9 and up</link>
+                            </para>
+                        </listitem>
+                        <listitem>
+                            <para>
+                                <link xlink:href='http://kingsfleet.blogspot.co.uk/2014/05/reading-and-writing-jax-rs-link-objects.html'>Reading and writing JAX-RS Link objects</link>
+                            </para>
+                        </listitem>
+                    </itemizedlist>
+                </para>
+            </section>
+            <section>
+                <title>Jackson 2</title>
+
+                <para>
+                    Our media module that supports working with JSON via Jackson library has been updated to use Jackson 2.x (2.3.2).
+                    All samples and tests have been rewritten to use Jackson 2 as well. In order to use Jackson 2 in your application
+                    you need to add jersey-media-json-jackson (+ it's Jackson dependencies) to your class-path and register
+                    <literal>JacksonFeature</literal> in your application.
+                </para>
+            </section>
+            <section>
+                <title>META-INF/services</title>
+
+                <para>
+                    We dropped automatic registration of message body providers (MessageBodyWriter, MessageBodyReader) and exception
+                    mappers via META-INF/services mechanism. This functionality can be restored by adding <literal>jersey-metainf-services</literal>
+                    module to the class-path of your application.
+                </para>
+                <para>
+                    Note: This change may affect 3rd party libraries (e.g. Jackson 2.x) in a way their provider would not be
+                    registered in an JAX-RS app. You need to either register them manually or use mentioned
+                    <literal>jersey-metainf-services</literal> module.
+                </para>
+            </section>
+            <section>
+                <title>Jersey Test Framework</title>
+
+                <para>
+                    Jersey Test Framework now supports TestNG to run the tests (in addition to the JUnit, which is supported by default).
+                    You can now run the tests in parallel using either JUnit or TestNG. See chapters dedicated to TestNG and parallel
+                    testing for more information: <xref linkend="testng"/> and <xref linkend="parallel"/>.
+                </para>
+            </section>
+        </section>
+
+        <section xml:id="mig-2.9-breaking-changes">
+            <title>Changes</title>
+            <para>
+                <itemizedlist>
+                    <listitem>
+                        <para>
+                            Some of the feature specific configuration properties (disable WADL, disable BV, disable JSON-Processing,
+                            enable Monitoring), and their server/client counterparts, are no longer affected by a value of properties
+                            <literal>CommonProperties.FEATURE_AUTO_DISCOVERY_DISABLE</literal> or
+                            <literal>CommonProperties.METAINF_SERVICES_LOOKUP_DISABLE</literal>. The specific properties have to
+                            be used to change default behaviour of mentioned features (e.g.
+                            <literal>ServerProperties.WADL_FEATURE_DISABLE</literal>).
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            Automatic registration of <literal>MessageBodyWriter</literal>, <literal>MessageBodyReaders</literal>
+                            and <literal>ExceptionMappers</literal> via <literal>META-INF/services</literal> mechanism has been
+                            removed. Disabling the automatic registration of providers via <literal>META-INF/services</literal>
+                            may affect 3rd party libraries (i.e. Jackson 2.x) that are using this mechanism to register it's
+                            providers. In order to restore this functionality the <literal>org.glassfish.jersey.ext:jersey-metainf-services</literal>
+                            has to be added on the classpath. Otherwise such providers has to be registered manually.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            The Jackson JSON Jersey module has been updated to use Jackson 2.x instead of Jackson 1.x. This means
+                            that all the code that has been using Jackson 1.x for JSON (de)serialization has to be migrated to
+                            Jackson 2.x.
+                        </para>
+                    </listitem>
+                </itemizedlist>
+            </para>
+        </section>
+    </section>
+    <section xml:id="mig-2.8">
+        <title>Migrating from Jersey 2.7 to 2.8</title>
+
+        <section xml:id="mig-2.8-breaking-changes">
+            <title>Changes</title>
+            <para>
+                <itemizedlist>
+                    <listitem>
+                        <para>
+                            Because of a bug fix for issue
+                            <link xlink:href='https://java.net/jira/browse/JERSEY-2458'>JERSEY-2458</link>, there has been
+                            a slight change in the behavior of &jaxrs.core.UriInfo; <literal>getPath</literal> and
+                            <literal>getPathSegments</literal> methods. The <literal>getPath</literal> methods no longer return
+                            a path prefixed with a slash (<literal>'/'</literal>), instead they now correctly return a request
+                            path <emphasis>relative</emphasis> to the base request URI. Also, the &lit.jaxrs.core.UriInfo;
+                            now correctly handles requests which URI contains empty path segments
+                            (e.g. <literal>http://localhost///a/b//c</literal>). These empty path segments are now correctly
+                            included in the lists returned by the <literal>UriInfo.getPathSegments</literal> methods.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            &jersey.sse.SseFeature; now gets automatically discovered and enabled if the SSE module is present
+                            on the class path. This behavior can be suppressed by setting &jersey.sse.SseFeature.DISABLE_SSE;
+                            property to <literal>true</literal>. The behavior can also be selectively suppressed in either
+                            client or server runtime by setting the &jersey.sse.SseFeature.DISABLE_SSE_CLIENT; or
+                            &jersey.sse.SseFeature.DISABLE_SSE_SERVER; property respectively.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            Deprecated <literal>getDestroyTime</literal> method has been removed from
+                            <literal>org.glassfish.jersey.server.monitoring.ApplicationStatistics</literal>.
+                            To get the application shutdown information,
+                            a &jersey.server.ContainerLifecycleListener; should be registered and its
+                            <literal>onShutdown</literal> method implemented to listen to and process the application
+                            shutdown event.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            Method <literal>triggerEvent(RequestEvent.Type)</literal> has been removed from the public
+                            &jersey.server.ContainerRequest; API. This method has never been intended for public,
+                            application-level use.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            In Jersey 2.7 and earlier it was (under certain conditions) possible to supply custom
+                            &jersey.test.spi.TestContainerFactory; as part of the tested JAX-RS / Jersey application.
+                            This factory would be picked and used by &jersey.test.JerseyTest; to instantiate
+                            &jersey.test.spi.TestContainer; that will host the tested application. This feature was
+                            unreliable and redundant. As such, support for the feature has been removed. To specify a custom
+                            &lit.jersey.test.spi.TestContainerFactory; to be used by your &lit.jersey.test.JerseyTest;
+                            subclass, please override the <literal>JerseyTest.getTestContainerFactory</literal> method instead.
+                            Overriding <literal>getTestContainerFactory</literal> now remains the only reliable way of specifying
+                            custom &lit.jersey.test.spi.TestContainerFactory; implementation to be used in your tests.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            Protected method <literal>setTestContainerFactory</literal> has been removed from the
+                            &lit.jersey.test.JerseyTest; API as calling the method had no effect on the
+                            &lit.jersey.test.spi.TestContainerFactory; instance used by the &lit.jersey.test.JerseyTest;
+                            subclass.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            Protected method <literal>getClient</literal> has been removed from the &lit.jersey.test.JerseyTest;
+                            API. To configure test client instances, please override the <literal>configureClient</literal>
+                            method instead.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            Utility methods &lit.jersey.test.JerseyTest; that provide access to pre-configured
+                            &jaxrs.client.Client; and &jaxrs.client.WebTarget; instances (<literal>client()</literal>,
+                            <literal>target(...)</literal>) have been made final to prevent overriding in subclasses
+                            and thus ensure consistency of the jersey test framework functionality.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            &lit.jersey.test.JerseyTest; constructor
+                            <literal>JerseyTest(Class&lt;? extends Application&gt;)</literal> has been made deprecated
+                            and will be removed in the subsequent Jersey release.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            It was previously possible to pass in a custom &jersey.server.spi.ContainerProvider; that was
+                            supposed to deploy and run the application as one of the JAX-RS / Jersey application providers.
+                            This ability has been removed without any substitute as the concept was fundamentally flawed.
+                            Typical use cases should not be affected by this change.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            Factory methods <literal>createHttpServer</literal> which take Jersey
+                            &jersey.server.ApplicationHandler; as one of the input parameters have been removed from the
+                            Jersey container factory API as inherently broken. This impacts
+                            &jersey.grizzly.GrizzlyHttpServerFactory;, &jersey.jdkhttp.JdkHttpServerFactory;,
+                            &jersey.jetty.JettyHttpContainerFactory; and &jersey.simple.SimpleContainerFactory; implementations.
+                            The methods that take &jersey.server.ResourceConfig; as input parameter should be used instead.
+                            Typical use cases should not be affected by this change.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            Method <literal>registerAdditionalBinders</literal> on &jersey.server.ApplicationHandler;
+                            has been removed from the public API. Please use the specific &lit.jersey.server.ApplicationHandler;
+                            constructor that accepts custom HK2 binders instead.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            Several configuration properties were renamed, especially those having client and server versions
+                            along with the common version in &lit.jersey.common.CommonProperties;. Please see following table
+                            for complete reference:
+                            <table>
+                                <title>List of changed configuration properties:</title>
+                                <tgroup cols="3">
+                                    <thead>
+                                        <row>
+                                            <entry>Constant</entry>
+                                            <entry>Old value (Jersey 2.7 and before)</entry>
+                                            <entry>New value (Jersey 2.8+)</entry>
+                                        </row>
+                                    </thead>
+                                    <tbody>
+                                        <row>
+                                            <entry>&jersey.client.ClientProperties.FEATURE_AUTO_DISCOVERY_DISABLE;</entry>
+                                            <entry><literal>jersey.config.disableAutoDiscovery.client</literal></entry>
+                                            <entry><literal>jersey.config.client.disableAutoDiscovery</literal></entry>
+                                        </row>
+                                        <row>
+                                            <entry>&jersey.server.ServerProperties.FEATURE_AUTO_DISCOVERY_DISABLE;</entry>
+                                            <entry><literal>jersey.config.disableAutoDiscovery.server</literal></entry>
+                                            <entry><literal>jersey.config.server.disableAutoDiscovery</literal></entry>
+                                        </row>
+
+                                        <row>
+                                            <entry>&jersey.client.ClientProperties.JSON_PROCESSING_FEATURE_DISABLE;</entry>
+                                            <entry><literal>jersey.config.disableJsonProcessing.client</literal></entry>
+                                            <entry><literal>jersey.config.client.disableJsonProcessing</literal></entry>
+                                        </row>
+                                        <row>
+                                            <entry>&jersey.server.ServerProperties.JSON_PROCESSING_FEATURE_DISABLE;</entry>
+                                            <entry><literal>jersey.config.disableJsonProcessing.server</literal></entry>
+                                            <entry><literal>jersey.config.server.disableJsonProcessing</literal></entry>
+                                        </row>
+
+                                        <row>
+                                            <entry>&jersey.client.ClientProperties.METAINF_SERVICES_LOOKUP_DISABLE;</entry>
+                                            <entry><literal>jersey.config.disableMetainfServicesLookup.client</literal></entry>
+                                            <entry><literal>jersey.config.client.disableMetainfServicesLookup</literal></entry>
+                                        </row>
+                                        <row>
+                                            <entry>&jersey.server.ServerProperties.METAINF_SERVICES_LOOKUP_DISABLE;</entry>
+                                            <entry><literal>jersey.config.disableMetainfServicesLookup.server</literal></entry>
+                                            <entry><literal>jersey.config.server.disableMetainfServicesLookup</literal></entry>
+                                        </row>
+
+                                        <row>
+                                            <entry>&jersey.client.ClientProperties.MOXY_JSON_FEATURE_DISABLE;</entry>
+                                            <entry><literal>jersey.config.disableMoxyJson.client</literal></entry>
+                                            <entry><literal>jersey.config.client.disableMoxyJson</literal></entry>
+                                        </row>
+                                        <row>
+                                            <entry>&jersey.server.ServerProperties.MOXY_JSON_FEATURE_DISABLE;</entry>
+                                            <entry><literal>jersey.config.disableMoxyJson.server</literal></entry>
+                                            <entry><literal>jersey.config.server.disableMoxyJson</literal></entry>
+                                        </row>
+
+                                        <row>
+                                            <entry>&jersey.client.ClientProperties.OUTBOUND_CONTENT_LENGTH_BUFFER;</entry>
+                                            <entry><literal>jersey.config.contentLength.buffer.client</literal></entry>
+                                            <entry><literal>jersey.config.client.contentLength.buffer</literal></entry>
+                                        </row>
+                                        <row>
+                                            <entry>&jersey.server.ServerProperties.OUTBOUND_CONTENT_LENGTH_BUFFER;</entry>
+                                            <entry><literal>jersey.config.contentLength.buffer.server</literal></entry>
+                                            <entry><literal>jersey.config.server.contentLength.buffer</literal></entry>
+                                        </row>
+
+                                        <row>
+                                            <entry>&jersey.server.ServerProperties.TRACING;</entry>
+                                            <entry><literal>jersey.config.server.tracing</literal></entry>
+                                            <entry><literal>jersey.config.server.tracing.type</literal></entry>
+                                        </row>
+                                    </tbody>
+                                </tgroup>
+                            </table>
+                            The old names are still working for now, but are deprecated. There is a fallback mechanism
+                            implemented while reading the property and each get, that resolves the value from the old-named
+                            property, will log a <literal>CONFIG</literal> level warning.
+                        </para>
+
+                    </listitem>
+                </itemizedlist>
+            </para>
+        </section>
+    </section>
+    <section xml:id="mig-2.7">
+        <title>Migrating from Jersey 2.6 to 2.7</title>
+
+        <section xml:id="mig-2.7-breaking-changes">
+            <title>Changes</title>
+            <para>
+                <itemizedlist>
+                    <listitem>
+                        <para>
+                            Until version 2.6, Jersey was compiled with Java SE 6. This has changes in Jersey 2.7.
+                            Now almost all Jersey components are compiled with Java SE 7 target. It means, that you will need at least Java
+                            SE 7 to be able to compile and run your application that is using latest Jersey.
+                            Only <literal>core-common</literal> and <literal>core-client</literal> modules are still compiled with Java class
+                            version runnable with Java SE 6.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            MVC support: method <literal>writeTo</literal> of &jersey.server.mvc.TemplateProcessor;
+                            was modified by adding an argument <literal>MultivaluedMap&lt;String, Object&gt; httpHeaders</literal>.
+                            This is an incompatible change (the method was modified directly in the interface). All
+                            Jersey provided MVC implementation were adjusted but if you have your own MVC implementation
+                            then you need to modify the method signature of the implementation.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            A minor JAX-RS incompatibility issue has been recently discovered and reported
+                            (see <link xlink:href="https://java.net/jira/browse/JERSEY-2387">JERSEY-2387</link>). As part of the
+                            fix, minor breaking changes related to URI resolving and creation have been introduced in the
+                            behavior of &jaxrs.core.UriBuilder;, &jaxrs.core.Link.Builder; and &jaxrs.client.WebTarget; classes.
+                            It is no longer possible to successfully build a new &lit.jdk6.URI; instance from a
+                            &lit.jaxrs.core.UriBuilder; that contains unresolved template parameters.
+                            An <literal>IllegalArgumentException</literal> will be thrown in such case, as mandated by
+                            JAX-RS API javadoc. Similarly, it is not possible to successfully create a &jaxrs.core.Link;
+                            instance from a URI template with unresolved template parameters.
+                            Also, it is not possible to successfully send a request on a &lit.jaxrs.client.WebTarget; that
+                            represents a URI template that does not have all the template parameters properly resolved.
+                            Any attempt to do so will fail with an exception. Note that this also applies to any managed clients
+                            injected into JAX-RS server-side components using &jersey.server.Uri; annotation.
+                        </para>
+                        <para>
+                            In Jersey 2.6 and earlier, producing a URI from an incompletely resolved URI template would succeed
+                            and all unresolved template parameter locations would be encoded without change into the resulting
+                            URI, for example <literal>"/path/{param}"</literal> would be implicitly encoded as
+                            <literal>"/path/%7Bparam%7D"</literal>. While we do not expect our users to depend on this
+                            functionality, if the former behavior is desired for some reason,
+                            <literal>UriComponent.encodeTemplateNames</literal> method can be used instead:
+
+                            <programlisting language="java" linenumbering="unnumbered">URI.create(UriComponent.encodeTemplateNames(UriBuilder.fromUri("/path/{param}").toTemplate()));</programlisting>
+
+                            or simply
+
+                            <programlisting language="java" linenumbering="unnumbered">URI.create(UriComponent.encodeTemplateNames("/path/{param}"));</programlisting>
+                        </para>
+                    </listitem>
+                </itemizedlist>
+            </para>
+        </section>
+    </section>
+    <section xml:id="mig-2.6">
+        <title>Migrating from Jersey 2.5.1 to 2.6</title>
+
+        <section xml:id="mig-2.6-repackaged">
+            <title>Guava and ASM have been embedded</title>
+            <para>
+                Jersey no longer depend directly on Guava and ASM artifacts which means that users are free to use their own
+                versions of mentioned libraries.
+            </para>
+            <para>
+                New bundle has been created for Guava (<literal>bundles/repackaged/jersey-guava</literal>), with Maven coordinates:
+                <literal>org.glassfish.jersey.bundles.repackaged:jersey-guava</literal>
+            </para>
+            <para>
+                (Repackaged) ASM is now part of Jersey Server. Jersey currently uses ASM 5 for package-scanning capabilities.
+            </para>
+        </section>
+        <section xml:id="mig-2.6-new-deprecated">
+            <title>New deprecated APIs / internal classes</title>
+            <para>Following APIs were deprecated:</para>
+            <para>
+                <itemizedlist>
+                    <listitem>
+                        <para>
+                            <literal>org.glassfish.jersey.message.internal.HttpDateFormat</literal> - method
+                            <literal>getPreferedDateFormat()</literal> has been marked as deprecated due to typo in the name. New
+                            method <literal>getPreferredDateFormat()</literal> should be used instead.
+                        </para>
+                    </listitem>
+                </itemizedlist>
+            </para>
+        </section>
+        <section xml:id="mig-2.6-removed-deprecated">
+            <title>Removed deprecated APIs</title>
+            <para>Following, already deprecated, APIs were removed:</para>
+            <para>
+                <itemizedlist>
+                    <listitem>
+                        <para>
+                            <literal>org.glassfish.jersey.client.filter.HttpBasicAuthFilter</literal>
+                            and <literal>org.glassfish.jersey.client.filter.HttpDigestAuthFilter</literal>
+                            (use &jersey.client.HttpAuthenticationFeature; instead)
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            <literal>org.glassfish.jersey.apache.connector.ApacheClientProperties.HTTP_PARAMS</literal>
+                            (use <literal>org.glassfish.jersey.apache.connector.ApacheClientProperties#REQUEST_CONFIG</literal> instead),
+                            <literal>org.glassfish.jersey.apache.connector.ApacheClientProperties.PROXY_URI</literal>,
+                            <literal>org.glassfish.jersey.apache.connector.ApacheClientProperties.PROXY_USERNAME</literal>,
+                            <literal>org.glassfish.jersey.apache.connector.ApacheClientProperties.PROXY_PASSWORD</literal>
+                            (use corresponding &jersey.client.ClientProperties; instead.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            <literal>org.glassfish.jersey.server.validation.ValidationConfig.setMessageInterpolator</literal>
+                            <literal>org.glassfish.jersey.server.validation.ValidationConfig.setTraversableResolver</literal>
+                            <literal>org.glassfish.jersey.server.validation.ValidationConfig.setConstraintValidatorFactory</literal>
+                            <literal>org.glassfish.jersey.server.validation.ValidationConfig.setParameterNameProvider</literal>
+                            (use corresponding methods of the same class without <literal>"set"</literal> prefix in the method names).
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            <literal>org.glassfish.jersey.server.mvc.MvcProperties</literal>
+                            (use properties of <literal>org.glassfish.jersey.server.mvc.MvcFeature</literal> instead).
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            MVC does not allow to specify the resolving class. Resolving class is used to create a path of the
+                            template. Changes are:
+                        </para>
+                        <para>
+                            Annotation attribute <literal>Class&lt;?&gt; org.glassfish.jersey.server.mvc.Template.resolvingClass()</literal>
+                            (the attribute was obsolete and therefore removed. Resolving class now always the resource
+                            class in which the MVC resource method is defined).
+                        </para>
+                        <para>
+                            <literal>resolvingClass</literal> was removed from &jersey.server.mvc.Viewable;. The constructor
+                            no longer accepts this argument and there is no getter for this field.
+                        </para>
+                    </listitem>
+                    <listitem>
+                        <para>
+                            <literal>org.glassfish.jersey.server.mvc.freemarker.FreemarkerProperties</literal> (use
+                            &jersey.server.mvc.FreemarkerMvcFeature; instead)
+                        </para>
+                    </listitem>
+
+                    <listitem>
+                        <para>
+                            <literal>org.glassfish.jersey.server.mvc.jsp.JspProperties</literal>
+                            (use &jersey.server.mvc.JspMvcFeature; instead)
+                        </para>
+                    </listitem>
+
+                    <listitem>
+                        <para>
+                            <literal>org.glassfish.jersey.server.model.RuntimeResource.getFirstParentResource()</literal>
+                            (use &jersey.server.Resource.getParent; instead).
+                        </para>
+                    </listitem>
+
+                </itemizedlist>
+            </para>
+        </section>
+        <para>
+            <itemizedlist>
+                <listitem><para>
+                    WADL is by default displayed in the simplified form. It does not contain supporting resources
+                    like OPTIONS methods or <literal>/application.wadl</literal> itself. In order to get the
+                    full WADL use query param <literal>detail=true</literal>. For example make a GET request
+                    to <literal>http://localhost:8080/application.wadl?detail=true</literal>.
+                </para></listitem>
+            </itemizedlist>
+        </para>
+    </section>
+
+
+    <section xml:id="mig-2.5.1">
+        <title>Migrating from Jersey 2.5 to 2.5.1</title>
+
+        <para>
+            <itemizedlist>
+                <listitem><para>
+                    WADL is by default displayed in the simplified form. It does not contain supporting resources
+                    like OPTIONS methods or <literal>/application.wadl</literal> itself. In order to get the
+                    full WADL use query param <literal>detail=true</literal>. For example make a GET request
+                    to <literal>http://localhost:8080/application.wadl?detail=true</literal>.
+                </para></listitem>
+            </itemizedlist>
+        </para>
+    </section>
+
     <section xml:id="mig-2.5">
         <title>Migrating from Jersey 2.4.1 to 2.5</title>
 
@@ -63,24 +698,24 @@
                         <emphasis>Client chunked encoding configuration behaviour has changed:</emphasis>
                     </para>
                         <para>
-                        Jersey client uses chunked encoding (streaming) for serialization of the entity as a default option.
-                        Before Jersey 2.5 release entity buffering has been used by default. The size of the chunk can still
-                        be controlled by &jersey.client.ClientProperties.CHUNKED_ENCODING_SIZE; property, this property
-                        however no longer enforces the use of chunked encoding. To control request entity buffering and
-                        chunked transfer coding selection, please utilize use the new
-                        &jersey.client.ClientProperties.REQUEST_ENTITY_PROCESSING; property. The behaviour of the property
-                        is however not unified across the available &jersey.client.Connector; implementations and depends
-                        on the connector implementation configured for the &jaxrs.client.Client; instance.
-                        Default connector produced by &jersey.client.HttpUrlConnectorProvider; still uses
-                        buffering as default options due to bugs in <literal>HttpURLConnection</literal>. On the other hand,
-                        Jetty HTTP Client based connectors produced by &jersey.jetty.JettyConnectorProvider; do not support
-                        chunked encoding at all.
-                    </para><para>
-                        Please note that this is not a newly introduced limitation - it's merely
-                        an official acknowledgement of the fact that different connectors have different capabilities and
-                        limitations - something that has always been part of the individual connector implementations, it
-                        just was not publicly acknowledged.
-                    </para></listitem>
+                            Jersey client uses chunked encoding (streaming) for serialization of the entity as a default option.
+                            Before Jersey 2.5 release entity buffering has been used by default. The size of the chunk can still
+                            be controlled by &jersey.client.ClientProperties.CHUNKED_ENCODING_SIZE; property, this property
+                            however no longer enforces the use of chunked encoding. To control request entity buffering and
+                            chunked transfer coding selection, please utilize use the new
+                            &jersey.client.ClientProperties.REQUEST_ENTITY_PROCESSING; property. The behaviour of the property
+                            is however not unified across the available &jersey.client.Connector; implementations and depends
+                            on the connector implementation configured for the &jaxrs.client.Client; instance.
+                            Default connector produced by &jersey.client.HttpUrlConnectorProvider; still uses
+                            buffering as default options due to bugs in <literal>HttpURLConnection</literal>. On the other hand,
+                            Jetty HTTP Client based connectors produced by &jersey.jetty.JettyConnectorProvider; do not support
+                            chunked encoding at all.
+                        </para><para>
+                            Please note that this is not a newly introduced limitation - it's merely
+                            an official acknowledgement of the fact that different connectors have different capabilities and
+                            limitations - something that has always been part of the individual connector implementations, it
+                            just was not publicly acknowledged.
+                        </para></listitem>
                     <listitem><para>
                         New &jersey.client.ConnectorProvider; SPI has been introduced to decouple &jersey.client.Connector;
                         instantiation from &jaxrs.client.Client; instance boot-strapping. As such, the
@@ -303,7 +938,7 @@ resourceConfig.getSingletons().add(
     @Override
     protected void configure() {
         // request scope binding
-        bind(MyInjectablePerRequest.class).to(MyInjectablePerRequest.class).in(RequestScope.class);
+        bind(MyInjectablePerRequest.class).to(MyInjectablePerRequest.class).in(RequestScoped.class);
         // singleton binding
         bind(MyInjectableSingleton.class).in(Singleton.class);
         // singleton instance binding
@@ -518,7 +1153,7 @@ resourceConfig.addSingletons(reloader);
                             <entry>For the static factory methods and constructors.</entry>
                         </row>
                         <row>
-                            <entry></entry>
+                            <entry/>
                             <entry>
                                 &jaxrs.client.Client;
                             </entry>
@@ -531,7 +1166,7 @@ resourceConfig.addSingletons(reloader);
                             <entry>
                                 &jaxrs.client.WebTarget;
                             </entry>
-                            <entry></entry>
+                            <entry/>
                         </row>
                         <row>
                             <entry>
@@ -650,6 +1285,189 @@ Client client = Client.create(dcc);</programlisting>
                     </programlisting>
                 </para>
             </section>
+        </section>
+
+        <section xml:id="mig-1-x-json">
+            <title>JSON support changes</title>
+            <para>JSON Support has undergone certain changes in Jersey&nbsp;2.x. The most visible
+                difference for the developer is in the initialization and configuration.</para>
+            <para>
+                In Jersey&nbsp;1.x, the JAXB/JSON Support was implemented as a set of <literal>MessageBodyReaders</literal> and
+                <literal>MessageWriters</literal> in the <literal>jersey-json</literal> module.
+                Internally, there were several implementations of JSON to Object mapping ranging from Jersey's own custom
+                solution to third party providers, such as <literal>Jackson</literal> or <literal>Jettison</literal>.
+                The configuration of the JSON support was centralized in the <literal>JSONConfiguration</literal> and
+                <literal>JSONJAXBContext</literal> classes.
+            </para>
+            <section xml:id="mig-1-x-json-init">
+                <title>Initialization</title>
+                <para>
+                    There are three main JSON-mapping handling approaches, which are preserved in Jersey&nbsp;2:
+                    <link linkend="json-jaxb">JAXB-based</link>,
+                    <link linkend="json-pojo">POJO mapping</link> and
+                    <link linkend="json-lowlevel">Low-level parsing</link>
+
+                    The following table shows how to enable each of them in both Jersey&nbsp;2 compared to Jersey&nbsp;1:
+                    <table>
+                        <title>JSON approaches and usage in Jersey&nbsp;1 vs Jersey&nbsp;2</title>
+                        <tgroup cols="3">
+                            <thead>
+                                <row>
+                                    <entry>Approach</entry>
+                                    <entry>Jersey&nbsp;1</entry>
+                                    <entry>Jersey&nbsp;2</entry>
+                                </row>
+                            </thead>
+                            <tbody>
+                                <row>
+                                    <entry>POJO</entry>
+                                    <entry>register <literal>POJOMappingFeature</literal>, use
+                                        &jersey.media.ObjectMapper1; for configuration
+                                    </entry>
+                                    <entry>
+                                        use <literal>Jackson</literal> provider:
+                                        (add <literal>jersey-media-json-jackson</literal> dependency
+                                        and <link linkend="jackson-registration">register</link>
+                                        the <literal>JacksonFeature</literal>), configure with custom
+                                        &jersey.media.ObjectMapper; instance.
+                                    </entry>
+                                </row>
+                                <row>
+                                    <entry>JAXB</entry>
+                                    <entry>Default; use <literal>JSONConfiguration</literal>/<literal>JSONJAXBContext</literal>
+                                        for configuration
+                                    </entry>
+                                    <entry>use <literal>MOXy</literal> (add the <literal>jersey-media-moxy</literal>
+                                        dependency; the feature will be registered
+                                        <link linkend="deployment.autodiscoverable">automatically</link>), configure
+                                        using <literal>MoxyJsonConfig</literal>
+                                    </entry>
+                                </row>
+                                <row>
+                                    <entry>Low-level</entry>
+                                    <entry>Direct usage of <literal>JSONObject</literal> and/or
+                                        <literal>JSONArray</literal> classes</entry>
+                                    <entry>use JSON-P (standard) or Jettison (non-standard) APIs (add the relevant dependency)</entry>
+                                </row>
+                            </tbody>
+                        </tgroup>
+                    </table>
+                    <example>
+                        <title>Initializing JAXB-based support with MOXy</title>
+                            <programlisting language="xml" linenumbering="unnumbered">
+&lt;dependency&gt;
+  &lt;groupId&gt;org.glassfish.jersey.media&lt;/groupId&gt;
+  &lt;artifactId&gt;jersey-media-moxy&lt;/artifactId&gt;
+  &lt;version&gt;&version;&lt;/version&gt;
+&lt;/dependency&gt;</programlisting>
+                    </example>
+                    <note>
+                        <para>
+                            For JAXB-based support, MOXy is the default way in Jersey&nbsp;2. However, other providers
+                            (<literal>Jackson</literal>, <literal>Jettison</literal>) can be used as well.
+                            The relevant feature has to be registered (and dependency added) and custom implementation
+                            of <literal>ContextResolver</literal> has to be provided. See the code snippets
+                            in the <link linkend="json.jackson">related chapter</link>.
+                        </para>
+                        <para>
+                            For more on particular <literal>Feature</literal> registration, see also:
+                            <link linkend="jackson-registration">Jackson&nbsp;registration</link>,
+                            <link linkend="jettison-registration">Jettison&nbsp;registration</link>,
+                            <link linkend="moxy-registration">MOXy&nbsp;registration</link>,
+                            <link linkend="jsonp-registration">JSON-P&nbsp;registration</link>.
+                        </para>
+                        <para>
+                            It is important to point out, that the <literal>Feature</literal> registration has to be done
+                            separately for client and server.
+                        </para>
+                    </note>
+                    <note>
+                        <para>
+                            With Jersey 2.9, <literal>Jackson</literal> has been updated to version&nbsp;2.3.2. The feature is
+                            still configured via mentioned <literal>ObjectMapper</literal> class, but the package has changed.
+                            <itemizedlist>
+                                <listitem>For <literal>jackson&nbsp;1.x</literal>,
+                                    use <literal>org.codehaus.jackson.map.ObjectMapper</literal>
+                                </listitem>
+                                <listitem>For <literal>jackson&nbsp;2.x</literal>, use
+                                    <literal>com.fasterxml.jackson.core.ObjectMapper</literal>
+                                </listitem>
+                            </itemizedlist>
+                        </para>
+                    </note>
+                </para>
+            </section>
+            <section xml:id="mig-1-x-json-notation">
+                <title>JSON Notation</title>
+                <para>
+                    Jersey&nbsp;1 was selecting the provider automatically based on the desired JSON Notation. This concept was
+                    replaced in Jersey&nbsp;2 by direct choice of provider (as shown above). To provide some guide how to achieve the
+                    same results as in the previous Jersey version, see the following list:
+                    <itemizedlist>
+                        <listitem>
+                            <para>
+                                <literal>MAPPED</literal>
+                                not supported
+                            </para>
+                        </listitem>
+                        <listitem>
+                            <para>
+                                <literal>NATURAL</literal>
+                                default MOXy output
+                            </para>
+                        </listitem>
+                        <listitem>
+                            <para>
+                                <literal>JETTISON_MAPPED</literal>
+                                supported by Jettison
+                            </para>
+                        </listitem>
+                        <listitem>
+                            <para>
+                                <literal>BADGERFISH</literal>
+                                supported by Jettison
+                            </para>
+                        </listitem>
+                    </itemizedlist>
+                </para>
+            </section>
+            <section xml:id="mig-1-x-json-config">
+                <title>Configuration</title>
+                <para>
+                    As mentioned, the centralized configuration of Jersey&nbsp;1's <literal>JSONConfiguration</literal> does not have
+                    a direct equivalent in Jersey&nbsp;2. Each provider has it's own way to be configured. Detailed description of
+                    each
+                    method and property is out of scope of this migration guide and can be found in the documentation and APIs of
+                    the relevant providers and/or the relevant Jersey module API.
+                    Bellow are several basic examples how to configure certain options when using MOXy with Jersey's
+                    <literal>MoxyJsonConfig</literal> class.
+
+                    <itemizedlist>
+                        <listitem>
+                            <para><emphasis>Formated output</emphasis></para>
+                            <para>Jersey&nbsp;1: <literal>JSONConfiguration.createJSONConfigurationWithFormatted()</literal></para>
+                            <para>Jersey&nbsp;2/MOXy: <literal>MoxyJsonConfig.setFormattedOutput()</literal></para>
+                        </listitem>
+                        <listitem>
+                            <para><emphasis>Namespaces mapping</emphasis></para>
+                            <para>Jersey&nbsp;1: <literal>JSONConfiguration.natural().xml2JsonNs()</literal></para>
+                            <para>Jersey&nbsp;2/MOXy: <literal>MoxyJsonConfig.setNamespacePrefixMapper()</literal></para>
+                        </listitem>
+                        <listitem>
+                            <para><emphasis>Namespace separator</emphasis></para>
+                            <para>Jersey&nbsp;1: <literal>JSONConfiguration.natural().nsSeparator()</literal></para>
+                            <para>Jersey&nbsp;2/MOXy: <literal>MoxyJsonConfig.setNamespaceSeparator()</literal></para>
+                        </listitem>
+                    </itemizedlist>
+
+                    Properties can be also passed directly to <literal>Marshaller</literal> and/or <literal>Unmarshaller</literal>
+                    using: <literal>MoxyJsonConfig</literal>'s <literal>property()</literal>,
+                    <literal>marshallerProperty() </literal> and <literal>unmarshallerProperty()</literal> methods.
+                </para>
+            </section>
+            <para>
+                More on the JSON Support topic can be found in <xref linkend="json" />.
+            </para>
         </section>
     </section>
 </chapter>

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -63,12 +63,13 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.glassfish.jersey.internal.util.ExtendedLogger;
-import org.glassfish.jersey.internal.util.PropertiesHelper;
 import org.glassfish.jersey.internal.util.collection.Value;
+import org.glassfish.jersey.server.ApplicationHandler;
 import org.glassfish.jersey.server.ContainerException;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.server.internal.ConfigHelper;
+import org.glassfish.jersey.server.internal.ContainerUtils;
 import org.glassfish.jersey.server.spi.Container;
 import org.glassfish.jersey.server.spi.ContainerLifecycleListener;
 import org.glassfish.jersey.servlet.internal.LocalizationMessages;
@@ -262,7 +263,7 @@ public class ServletContainer extends HttpServlet implements Filter, Container {
             // and somebody would want to hit the root resource without the trailing slash
             int i = servletPath.lastIndexOf('/');
             if (servletPath.substring(i + 1).indexOf('.') < 0) {
-                // TODO (+ handle request URL with invalid characters - see the creation of absoluteUriBuilder bellow)
+                // TODO (+ handle request URL with invalid characters - see the creation of absoluteUriBuilder below)
 //                if (webComponent.getResourceConfig().getFeature(ResourceConfig.FEATURE_REDIRECT)) {
 //                    URI l = UriBuilder.fromUri(request.getRequestURL().toString()).
 //                            path("/").
@@ -320,10 +321,8 @@ public class ServletContainer extends HttpServlet implements Filter, Container {
         final URI baseUri;
         final URI requestUri;
         try {
-            baseUri = absoluteUriBuilder.replacePath(encodedBasePath).
-                    build();
-
-            String queryParameters = request.getQueryString();
+            baseUri = absoluteUriBuilder.replacePath(encodedBasePath).build();
+            String queryParameters = ContainerUtils.encodeUnsafeCharacters(request.getQueryString());
             if (queryParameters == null) {
                 queryParameters = "";
             }
@@ -529,7 +528,7 @@ public class ServletContainer extends HttpServlet implements Filter, Container {
                 build();
 
         final URI requestUri = absoluteUriBuilder.replacePath(requestURI).
-                replaceQuery(queryString).
+                replaceQuery(ContainerUtils.encodeUnsafeCharacters(queryString)).
                 build();
 
         final int status = service(baseUri, requestUri, request, response).get();
@@ -583,5 +582,10 @@ public class ServletContainer extends HttpServlet implements Filter, Container {
         } catch (ServletException ex) {
             logger.log(Level.SEVERE, "Reload failed", ex);
         }
+    }
+
+    @Override
+    public ApplicationHandler getApplicationHandler() {
+        return webComponent.appHandler;
     }
 }

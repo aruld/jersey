@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -43,6 +43,7 @@ import java.util.LinkedList;
 
 import javax.ws.rs.core.Application;
 
+import org.glassfish.jersey.internal.inject.Injections;
 import org.glassfish.jersey.internal.inject.Providers;
 import org.glassfish.jersey.server.ApplicationHandler;
 import org.glassfish.jersey.server.ResourceConfig;
@@ -50,14 +51,27 @@ import org.glassfish.jersey.server.spi.AbstractContainerLifecycleListener;
 import org.glassfish.jersey.server.spi.Container;
 import org.glassfish.jersey.server.spi.ContainerLifecycleListener;
 
-import com.google.common.collect.Iterables;
+import org.glassfish.hk2.api.ServiceLocator;
+
+import jersey.repackaged.com.google.common.collect.Iterables;
 
 /**
- * Helper class to provide some common functionality related to {@link org.glassfish.jersey.server.ResourceConfig application configuration}.
+ * Helper class to provide some common functionality related to
+ * {@link org.glassfish.jersey.server.ResourceConfig application configuration}.
  *
  * @author Jakub Podlesak (jakub.podlesak at oracle.com)
  */
 public final class ConfigHelper {
+
+    /**
+     * Default port number for HTTP protocol.
+     */
+    public static final int DEFAULT_HTTP_PORT = 80;
+
+    /**
+     * Default port number for HTTPS protocol.
+     */
+    public static final int DEFAULT_HTTPS_PORT = 443;
 
     /**
      * Prevents instantiation.
@@ -75,37 +89,29 @@ public final class ConfigHelper {
      */
     public static ContainerLifecycleListener getContainerLifecycleListener(final ApplicationHandler applicationHandler) {
 
-        final ContainerLifecycleListener appPreDestroyInvoker = new AbstractContainerLifecycleListener() {
-
-            @Override
-            public void onShutdown(Container container) {
-                applicationHandler.getServiceLocator().preDestroy(getWrappedApplication(applicationHandler.getConfiguration()));
-            }
-        };
-
         final Iterable<ContainerLifecycleListener> listeners = Iterables.concat(
                 Providers.getAllProviders(applicationHandler.getServiceLocator(), ContainerLifecycleListener.class),
-                new LinkedList<ContainerLifecycleListener>(){{add(appPreDestroyInvoker);}});
+                new LinkedList<ContainerLifecycleListener>() {{ add(new ServiceLocatorShutdownListener()); }});
 
         return new ContainerLifecycleListener() {
 
             @Override
-            public void onStartup(Container container) {
-                for (ContainerLifecycleListener listener : listeners) {
+            public void onStartup(final Container container) {
+                for (final ContainerLifecycleListener listener : listeners) {
                     listener.onStartup(container);
                 }
             }
 
             @Override
-            public void onReload(Container container) {
-                for (ContainerLifecycleListener listener : listeners) {
+            public void onReload(final Container container) {
+                for (final ContainerLifecycleListener listener : listeners) {
                     listener.onReload(container);
                 }
             }
 
             @Override
-            public void onShutdown(Container container) {
-                for (ContainerLifecycleListener listener : listeners) {
+            public void onShutdown(final Container container) {
+                for (final ContainerLifecycleListener listener : listeners) {
                     listener.onShutdown(container);
                 }
             }
@@ -113,9 +119,9 @@ public final class ConfigHelper {
     }
 
     /**
-     * Gets the most internal wrapped {@link Application application} class. This method is similar to {@link ResourceConfig#getApplication()}
-     * except if provided application was created by wrapping multiple {@link ResourceConfig} instances this method returns the original application
-     * and not a resource config wrapper.
+     * Gets the most internal wrapped {@link Application application} class. This method is similar to
+     * {@link ResourceConfig#getApplication()} except if provided application was created by wrapping multiple
+     * {@link ResourceConfig} instances this method returns the original application and not a resource config wrapper.
      *
      * @return the original {@link Application} subclass.
      */
@@ -128,5 +134,19 @@ public final class ConfigHelper {
             app = wrappedApplication;
         }
         return app;
+    }
+
+    private static class ServiceLocatorShutdownListener extends AbstractContainerLifecycleListener {
+
+        @Override
+        public void onShutdown(final Container container) {
+            final ApplicationHandler handler = container.getApplicationHandler();
+            final ServiceLocator locator = handler.getServiceLocator();
+
+            // Call @PreDestroy method on Application.
+            locator.preDestroy(getWrappedApplication(handler.getConfiguration()));
+            // Shutdown ServiceLocator.
+            Injections.shutdownLocator(locator);
+        }
     }
 }

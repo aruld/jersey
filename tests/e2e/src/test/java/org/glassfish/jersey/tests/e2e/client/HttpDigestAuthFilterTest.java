@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2010-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -39,18 +39,14 @@
  */
 package org.glassfish.jersey.tests.e2e.client;
 
-import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
-import java.util.logging.Logger;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.ProcessingException;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Application;
 import javax.ws.rs.core.Context;
@@ -59,11 +55,11 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.UriInfo;
 
-import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.test.JerseyTest;
 import org.glassfish.jersey.test.TestProperties;
+import org.glassfish.jersey.uri.UriComponent;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -71,11 +67,10 @@ import org.junit.Test;
 /**
  *
  * @author Pavel Bucek (pavel.bucek at oracle.com)
- * @author Stefan Katerkamp <stefan@katerkamp.de>
+ * @author Stefan Katerkamp <stefan at katerkamp.de>
  */
 public class HttpDigestAuthFilterTest extends JerseyTest {
 
-    private static final Logger logger = Logger.getLogger(HttpDigestAuthFilterTest.class.getName());
     private static final String DIGEST_TEST_LOGIN = "user";
     private static final String DIGEST_TEST_PASS = "password";
     private static final String DIGEST_TEST_INVALIDPASS = "nopass";
@@ -97,7 +92,6 @@ public class HttpDigestAuthFilterTest extends JerseyTest {
     @Path("/auth-digest")
     public static class Resource {
 
-        private static Method md5 = null;
         @Context
         private HttpHeaders httpHeaders;
         @Context
@@ -128,15 +122,16 @@ public class HttpDigestAuthFilterTest extends JerseyTest {
                 return responseBuilder.build();
             } else {
                 // the filter takes the seed and adds the header
-                List<String> authList = httpHeaders.getRequestHeader(HttpHeaders.AUTHORIZATION);
+                final List<String> authList = httpHeaders.getRequestHeader(HttpHeaders.AUTHORIZATION);
                 if (authList.size() != 1) {
                     return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
                 }
-                String authHeader = authList.get(0);
+                final String authHeader = authList.get(0);
 
-                String ha1 = md5(DIGEST_TEST_LOGIN, DIGEST_TEST_REALM, DIGEST_TEST_PASS);
-                String ha2 = md5("GET", uriInfo.getRequestUri().getRawPath());
-                String response = md5(
+                final String ha1 = md5(DIGEST_TEST_LOGIN, DIGEST_TEST_REALM, DIGEST_TEST_PASS);
+                final String requestUri = UriComponent.fullRelativeUri(uriInfo.getRequestUri());
+                final String ha2 = md5("GET", requestUri.startsWith("/") ? requestUri : "/" + requestUri);
+                final String response = md5(
                         ha1,
                         DIGEST_TEST_NONCE,
                         getDigestAuthHeaderValue(authHeader, "nc="),
@@ -163,23 +158,23 @@ public class HttpDigestAuthFilterTest extends JerseyTest {
          * @param tokens one or more strings
          * @return M5 hash string
          */
-        static String md5(String... tokens) {
-            StringBuilder sb = new StringBuilder(100);
-            for (String token : tokens) {
+        static String md5(final String... tokens) {
+            final StringBuilder sb = new StringBuilder(100);
+            for (final String token : tokens) {
                 if (sb.length() > 0) {
                     sb.append(':');
                 }
                 sb.append(token);
             }
 
-            MessageDigest md;
+            final MessageDigest md;
             try {
                 md = MessageDigest.getInstance("MD5");
-            } catch (NoSuchAlgorithmException ex) {
+            } catch (final NoSuchAlgorithmException ex) {
                 throw new ProcessingException(ex.getMessage());
             }
             md.update(sb.toString().getBytes(CHARACTER_SET), 0, sb.length());
-            byte[] md5hash = md.digest();
+            final byte[] md5hash = md.digest();
             return bytesToHex(md5hash);
         }
 
@@ -189,8 +184,8 @@ public class HttpDigestAuthFilterTest extends JerseyTest {
          * @param bytes array of bytes
          * @return hex string
          */
-        private static String bytesToHex(byte[] bytes) {
-            char[] hexChars = new char[bytes.length * 2];
+        private static String bytesToHex(final byte[] bytes) {
+            final char[] hexChars = new char[bytes.length * 2];
             int v;
             for (int j = 0; j < bytes.length; j++) {
                 v = bytes[j] & 0xFF;
@@ -210,8 +205,8 @@ public class HttpDigestAuthFilterTest extends JerseyTest {
          * @param keyName key of the value to retrieve
          * @return value string
          */
-        static String getDigestAuthHeaderValue(String authHeader, String keyName) {
-            int i1 = authHeader.indexOf(keyName);
+        static String getDigestAuthHeaderValue(final String authHeader, final String keyName) {
+            final int i1 = authHeader.indexOf(keyName);
 
             if (i1 == -1) {
                 return null;
@@ -233,64 +228,71 @@ public class HttpDigestAuthFilterTest extends JerseyTest {
 
     @Test
     public void testHttpDigestAuthFilter() {
-        final String path = "auth-digest";
-        testRequest(path);
+        testRequest("auth-digest");
     }
 
     @Test
     public void testHttpDigestAuthFilterWithEncodedUri() {
-        final String path = "auth-digest/ěščřžýáíé";
-        testRequest(path);
+        testRequest("auth-digest/ěščřžýáíé");
     }
 
-    private void testRequest(String path) {
-        ClientConfig jerseyConfig = new ClientConfig();
+    @Test
+    public void testHttpDigestAuthFilterWithParams() {
+        testRequest("auth-digest", true);
+    }
 
-        Client client = ClientBuilder.newClient(jerseyConfig);
-        client = client.register(HttpAuthenticationFeature.digest(DIGEST_TEST_LOGIN, DIGEST_TEST_PASS));
+    @Test
+    public void testHttpDigestAuthFilterWithEncodedUriAndParams() {
+        testRequest("auth-digest/ěščřžýáíé", true);
+    }
 
-        WebTarget resource = client.target(getBaseUri()).path(path);
+    private void testRequest(final String path) {
+        testRequest(path, false);
+    }
+
+    private void testRequest(final String path, final boolean addParams) {
+        WebTarget resource = target()
+                .register(HttpAuthenticationFeature.digest(DIGEST_TEST_LOGIN, DIGEST_TEST_PASS))
+                .path(path);
+
+        if (addParams) {
+            resource = resource.matrixParam("bar", "foo").queryParam("foo", "bar");
+        }
 
         ncExpected = 1;
-        Response r1 = resource.request().get();
+        final Response r1 = resource.request().get();
         Assert.assertEquals(Response.Status.fromStatusCode(r1.getStatus()), Response.Status.OK);
     }
 
 
     @Test
     public void testPreemptive() {
-        ClientConfig jerseyConfig = new ClientConfig();
-
-        Client client = ClientBuilder.newClient(jerseyConfig);
-        client = client.register(HttpAuthenticationFeature.digest(DIGEST_TEST_LOGIN, DIGEST_TEST_PASS));
-
-        WebTarget resource = client.target(getBaseUri()).path("auth-digest");
+        final WebTarget resource = target()
+                .register(HttpAuthenticationFeature.digest(DIGEST_TEST_LOGIN, DIGEST_TEST_PASS))
+                .path("auth-digest");
 
         ncExpected = 1;
-        Response r1 = resource.request().get();
+        final Response r1 = resource.request().get();
         Assert.assertEquals(Response.Status.fromStatusCode(r1.getStatus()), Response.Status.OK);
 
         ncExpected = 2;
-        Response r2 = resource.request().get();
-        Assert.assertEquals(Response.Status.fromStatusCode(r1.getStatus()), Response.Status.OK);
+        final Response r2 = resource.request().get();
+        Assert.assertEquals(Response.Status.fromStatusCode(r2.getStatus()), Response.Status.OK);
 
         ncExpected = 3;
-        Response r3 = resource.request().get();
-        Assert.assertEquals(Response.Status.fromStatusCode(r1.getStatus()), Response.Status.OK);
+        final Response r3 = resource.request().get();
+        Assert.assertEquals(Response.Status.fromStatusCode(r3.getStatus()), Response.Status.OK);
 
     }
 
     @Test
     public void testAuthentication() {
-        ClientConfig jerseyConfig = new ClientConfig();
-
-        Client client = ClientBuilder.newClient(jerseyConfig);
-        client = client.register(HttpAuthenticationFeature.digest(DIGEST_TEST_LOGIN, DIGEST_TEST_INVALIDPASS));
-
-        WebTarget resource = client.target(getBaseUri()).path("auth-digest");
+        final WebTarget resource = target()
+                .register(HttpAuthenticationFeature.digest(DIGEST_TEST_LOGIN, DIGEST_TEST_INVALIDPASS))
+                .path("auth-digest");
 
         ncExpected = 1;
-        Response r1 = resource.request().get();
+        final Response r1 = resource.request().get();
         Assert.assertEquals(Response.Status.fromStatusCode(r1.getStatus()), Response.Status.UNAUTHORIZED);
     }
 }

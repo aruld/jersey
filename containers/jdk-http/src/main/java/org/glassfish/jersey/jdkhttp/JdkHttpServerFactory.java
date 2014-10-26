@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2010-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -48,57 +48,84 @@ import java.util.concurrent.Executors;
 import javax.ws.rs.ProcessingException;
 
 import org.glassfish.jersey.jdkhttp.internal.LocalizationMessages;
-import org.glassfish.jersey.server.ApplicationHandler;
-import org.glassfish.jersey.server.ContainerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
+import org.glassfish.jersey.server.internal.ConfigHelper;
+
+import org.glassfish.hk2.api.ServiceLocator;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsServer;
 
 /**
- * Factory for creating {@link HttpServer JDK HttpServer} instances adapted to
- * the {@link ApplicationHandler}.
+ * Factory for creating {@link HttpServer JDK HttpServer} instances to run Jersey applications.
  *
  * @author Miroslav Fuksa (miroslav.fuksa at oracle.com)
+ * @author Marek Potociar (marek.potociar at oracle.com)
  */
-public class JdkHttpServerFactory {
+public final class JdkHttpServerFactory {
 
     /**
-     * Creates and starts the {@link HttpServer JDK HttpServer} with the Jersey
-     * application deployed on the given {@link URI}.
+     * Create and start the {@link HttpServer JDK HttpServer} with the Jersey application deployed
+     * at the given {@link URI}.
+     * <p>
+     * The returned {@link HttpServer JDK HttpServer} is started.
+     * </p>
      *
-     * <p>The returned {@link HttpServer JDK HttpServer} is started.</p>
-     *
-     * @param uri The {@link URI uri} on which the Jersey application will be deployed.
-     * @param configuration The Jersey server-side application configuration.
+     * @param uri           the {@link URI uri} on which the Jersey application will be deployed.
+     * @param configuration the Jersey server-side application configuration.
      * @return Newly created {@link HttpServer}.
-     * @throws ProcessingException Thrown when problems during server creation
-     * occurs.
+     *
+     * @throws ProcessingException thrown when problems during server creation
+     *                             occurs.
      */
-    public static HttpServer createHttpServer(final URI uri, final ResourceConfig configuration) throws ProcessingException {
-        final JdkHttpHandlerContainer handler = ContainerFactory.createContainer(JdkHttpHandlerContainer.class, configuration);
-        return createHttpServer(uri, handler);
+    public static HttpServer createHttpServer(final URI uri, final ResourceConfig configuration) {
+        return createHttpServer(uri, configuration, true);
     }
 
     /**
-     * Creates and starts the {@link HttpServer JDK HttpServer} with the
-     * Jersey application deployed on the given {@link URI}.
+     * Create (and possibly start) the {@link HttpServer JDK HttpServer} with the JAX-RS / Jersey application deployed
+     * on the given {@link URI}.
+     * <p>
+     * The {@code start} flag controls whether or not the returned {@link HttpServer JDK HttpServer} is started.
+     * </p>
      *
-     * <p>The returned {@link HttpServer JDK HttpServer} is started.</p>
-     *
-     * @param uri The {@link URI uri} on which the Jersey application will be deployed.
-     * @param appHandler The Jersey server-side application handler.
+     * @param uri           the {@link URI uri} on which the Jersey application will be deployed.
+     * @param configuration the Jersey server-side application configuration.
+     * @param start         if set to {@code false}, the created server will not be automatically started.
      * @return Newly created {@link HttpServer}.
-     * @throws ProcessingException Thrown when problems during server creation
-     * occurs.
+     *
+     * @throws ProcessingException thrown when problems during server creation occurs.
+     * @since 2.8
      */
-    public static HttpServer createHttpServer(final URI uri, final ApplicationHandler appHandler) throws ProcessingException {
-        return createHttpServer(uri, new JdkHttpHandlerContainer(appHandler));
+    public static HttpServer createHttpServer(final URI uri, final ResourceConfig configuration, final boolean start) {
+        return createHttpServer(uri, new JdkHttpHandlerContainer(configuration), start);
     }
 
-    private static HttpServer createHttpServer(final URI uri, final JdkHttpHandlerContainer handler) throws ProcessingException {
+    /**
+     * Create (and possibly start) the {@link HttpServer JDK HttpServer} with the JAX-RS / Jersey application deployed
+     * on the given {@link URI}.
+     * <p/>
+     *
+     * @param uri           the {@link URI uri} on which the Jersey application will be deployed.
+     * @param configuration the Jersey server-side application configuration.
+     * @param parentLocator {@link org.glassfish.hk2.api.ServiceLocator} to become a parent of the locator used by
+     *                      {@link org.glassfish.jersey.server.ApplicationHandler}
+     * @return Newly created {@link HttpServer}.
+     * @throws ProcessingException thrown when problems during server creation occurs.
+     * @see org.glassfish.jersey.jdkhttp.JdkHttpHandlerContainer
+     * @see org.glassfish.hk2.api.ServiceLocator
+     *
+     * @since 2.12
+     */
+    public static HttpServer createHttpServer(final URI uri, final ResourceConfig configuration,
+                                              final ServiceLocator parentLocator) {
+        return createHttpServer(uri, new JdkHttpHandlerContainer(configuration, parentLocator), true);
+    }
+
+    private static HttpServer createHttpServer(final URI uri, final JdkHttpHandlerContainer handler, final boolean start) {
 
         if (uri == null) {
             throw new IllegalArgumentException(LocalizationMessages.ERROR_CONTAINER_URI_NULL());
@@ -112,83 +139,162 @@ public class JdkHttpServerFactory {
         final String path = uri.getPath();
         if (path == null) {
             throw new IllegalArgumentException(LocalizationMessages.ERROR_CONTAINER_URI_PATH_NULL(uri));
-        } else if (path.length() == 0) {
+        } else if (path.isEmpty()) {
             throw new IllegalArgumentException(LocalizationMessages.ERROR_CONTAINER_URI_PATH_EMPTY(uri));
         } else if (path.charAt(0) != '/') {
             throw new IllegalArgumentException(LocalizationMessages.ERROR_CONTAINER_URI_PATH_START(uri));
         }
 
-        final int port = (uri.getPort() == -1) ? 80 : uri.getPort();
+        final boolean isHttp = scheme.equalsIgnoreCase("http");
+        final int port = (uri.getPort() == -1)
+                ? (isHttp ? ConfigHelper.DEFAULT_HTTP_PORT : ConfigHelper.DEFAULT_HTTPS_PORT)
+                : uri.getPort();
+
         final HttpServer server;
         try {
-            server = (scheme.equalsIgnoreCase("http"))
+            server = isHttp
                     ? HttpServer.create(new InetSocketAddress(port), 0)
                     : HttpsServer.create(new InetSocketAddress(port), 0);
-        } catch (IOException ioe) {
+        } catch (final IOException ioe) {
             throw new ProcessingException(LocalizationMessages.ERROR_CONTAINER_EXCEPTION_IO(), ioe);
         }
 
         server.setExecutor(Executors.newCachedThreadPool());
         server.createContext(path, handler);
 
-        final HttpServer wrapper = new HttpServer() {
+        final HttpServer wrapper = isHttp
+                ? createHttpServerWrapper(server, handler)
+                : createHttpsServerWrapper((HttpsServer) server, handler);
+
+        if (start) {
+            wrapper.start();
+        }
+
+        return wrapper;
+    }
+
+    private static HttpServer createHttpsServerWrapper(final HttpsServer delegate, final JdkHttpHandlerContainer handler) {
+        return new HttpsServer() {
 
             @Override
-            public void bind(InetSocketAddress inetSocketAddress, int i) throws IOException {
-                server.bind(inetSocketAddress, i);
+            public void setHttpsConfigurator(final HttpsConfigurator httpsConfigurator) {
+                delegate.setHttpsConfigurator(httpsConfigurator);
+            }
+
+            @Override
+            public HttpsConfigurator getHttpsConfigurator() {
+                return delegate.getHttpsConfigurator();
+            }
+
+            @Override
+            public void bind(final InetSocketAddress inetSocketAddress, final int i) throws IOException {
+                delegate.bind(inetSocketAddress, i);
             }
 
             @Override
             public void start() {
-                server.start();
+                delegate.start();
                 handler.onServerStart();
             }
 
             @Override
-            public void setExecutor(Executor executor) {
-                server.setExecutor(executor);
+            public void setExecutor(final Executor executor) {
+                delegate.setExecutor(executor);
             }
 
             @Override
             public Executor getExecutor() {
-                return server.getExecutor();
+                return delegate.getExecutor();
             }
 
             @Override
-            public void stop(int i) {
+            public void stop(final int i) {
                 handler.onServerStop();
-                server.stop(i);
+                delegate.stop(i);
             }
 
             @Override
-            public HttpContext createContext(String s, HttpHandler httpHandler) {
-                return server.createContext(s, httpHandler);
+            public HttpContext createContext(final String s, final HttpHandler httpHandler) {
+                return delegate.createContext(s, httpHandler);
             }
 
             @Override
-            public HttpContext createContext(String s) {
-                return server.createContext(s);
+            public HttpContext createContext(final String s) {
+                return delegate.createContext(s);
             }
 
             @Override
-            public void removeContext(String s) throws IllegalArgumentException {
-                server.removeContext(s);
+            public void removeContext(final String s) throws IllegalArgumentException {
+                delegate.removeContext(s);
             }
 
             @Override
-            public void removeContext(HttpContext httpContext) {
-                server.removeContext(httpContext);
+            public void removeContext(final HttpContext httpContext) {
+                delegate.removeContext(httpContext);
             }
 
             @Override
             public InetSocketAddress getAddress() {
-                return server.getAddress();
+                return delegate.getAddress();
             }
         };
+    }
 
-        wrapper.start();
+    private static HttpServer createHttpServerWrapper(final HttpServer delegate, final JdkHttpHandlerContainer handler) {
+        return new HttpServer() {
 
-        return wrapper;
+            @Override
+            public void bind(final InetSocketAddress inetSocketAddress, final int i) throws IOException {
+                delegate.bind(inetSocketAddress, i);
+            }
+
+            @Override
+            public void start() {
+                delegate.start();
+                handler.onServerStart();
+            }
+
+            @Override
+            public void setExecutor(final Executor executor) {
+                delegate.setExecutor(executor);
+            }
+
+            @Override
+            public Executor getExecutor() {
+                return delegate.getExecutor();
+            }
+
+            @Override
+            public void stop(final int i) {
+                handler.onServerStop();
+                delegate.stop(i);
+            }
+
+            @Override
+            public HttpContext createContext(final String s, final HttpHandler httpHandler) {
+                return delegate.createContext(s, httpHandler);
+            }
+
+            @Override
+            public HttpContext createContext(final String s) {
+                return delegate.createContext(s);
+            }
+
+            @Override
+            public void removeContext(final String s) throws IllegalArgumentException {
+                delegate.removeContext(s);
+            }
+
+            @Override
+            public void removeContext(final HttpContext httpContext) {
+                delegate.removeContext(httpContext);
+            }
+
+            @Override
+            public InetSocketAddress getAddress() {
+                return delegate.getAddress();
+            }
+        };
     }
 
     /**

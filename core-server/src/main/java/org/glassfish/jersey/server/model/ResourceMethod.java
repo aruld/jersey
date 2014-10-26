@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2010-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -59,10 +59,10 @@ import org.glassfish.jersey.model.NameBound;
 import org.glassfish.jersey.process.Inflector;
 import org.glassfish.jersey.uri.PathPattern;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Collections2;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
+import jersey.repackaged.com.google.common.base.Function;
+import jersey.repackaged.com.google.common.collect.Collections2;
+import jersey.repackaged.com.google.common.collect.Lists;
+import jersey.repackaged.com.google.common.collect.Sets;
 
 /**
  * Model of a method available on a resource. Covers resource method, sub-resource
@@ -152,8 +152,11 @@ public final class ResourceMethod implements ResourceModelComponent, Producing, 
         // Invocable
         private Class<?> handlerClass;
         private Object handlerInstance;
+
+        // method (can be also interface method). Specific method to execute is defined by handlingMethod
         private Method definitionMethod;
 
+        // this can be either equal to definitionMethod or child of definitionMethod
         private Method handlingMethod;
         private boolean encodedParams;
         private Type routingResponseType;
@@ -317,7 +320,8 @@ public final class ResourceMethod implements ResourceModelComponent, Producing, 
          * @param nameBindings name binding annotation types.
          * @return updated builder object.
          */
-        public Builder nameBindings(final Class<? extends Annotation>... nameBindings) {
+        @SafeVarargs
+        public final Builder nameBindings(final Class<? extends Annotation>... nameBindings) {
             return nameBindings(Arrays.asList(nameBindings));
         }
 
@@ -786,7 +790,7 @@ public final class ResourceMethod implements ResourceModelComponent, Producing, 
      * Get the flag indicating whether the resource method is extended or is a core of exposed RESTful API.
      * <p>
      * Extended resource model components are helper components that are not considered as a core of a
-     * RESTful API. These can be for example {@code OPTIONS} {@link ResourceMethod resource methods}
+     * RESTful API. These can be for example {@code OPTIONS} resource methods
      * added by {@link org.glassfish.jersey.server.model.ModelProcessor model processors}
      * or {@code application.wadl} resource producing the WADL. Both resource are rather supportive
      * than the core of RESTful API.

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -76,7 +76,6 @@ public class FreemarkerResource {
     @Path("hello-default-model")
     @Produces(MediaType.TEXT_HTML)
     public Viewable getHelloWithDefaultModel() {
-        final Map<String, Object> map = new HashMap<String, Object>();
         return new Viewable("/hello-default-model.ftl", "Pavel");
     }
 
@@ -89,7 +88,7 @@ public class FreemarkerResource {
 
         // template name is derived from resource class name
         return new Viewable("/org/glassfish/jersey/examples/freemarker/resources/FreemarkerResource.ftl",
-                map, FreemarkerResource.class);
+                map);
     }
 
     @GET

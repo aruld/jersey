@@ -3,7 +3,7 @@
 
     DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 
-    Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+    Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
 
     The contents of this file are subject to the terms of either the GNU
     General Public License Version 2 only ("GPL") or the Common Development
@@ -383,7 +383,7 @@ public ShortenedLink createLink(@NotEmpty @FormParam("link") final String link) 
     &lt;version&gt;&version;&lt;/version&gt;
 &lt;/dependency&gt;</programlisting>
 
-                and for non-Maven users the list of dependencies is available at &jersey-mvc-bean-validation;.
+                and for non-Maven users the list of dependencies is available at &jersey.ext.mvc-bean-validation.deps.link;.
             </para>
         </section>
     </section>
@@ -428,10 +428,10 @@ public ShortenedLink createLink(@NotEmpty @FormParam("link") final String link) 
             are listed directly in the module <literal>*Feature</literal> class.
 
             <example xml:id="mvc.ex.rc.properties">
-                <title>Setting <literal>MvcProperties.TEMPLATE_BASE_PATH</literal> value in &lit.jersey.server.ResourceConfig;</title>
+                <title>Setting <literal>MvcFeature.TEMPLATE_BASE_PATH</literal> value in &lit.jersey.server.ResourceConfig;</title>
 
                 <programlisting language="java">new ResourceConfig()
-    .property(MvcProperties.TEMPLATE_BASE_PATH, "templates")
+    .property(MvcFeature.TEMPLATE_BASE_PATH, "templates")
     .register(MvcFeature.class)
     // Further configuration of ResourceConfig.
     .register( ... );</programlisting>
@@ -519,6 +519,13 @@ public ShortenedLink createLink(@NotEmpty @FormParam("link") final String link) 
                             <literal>jersey.config.server.mvc.factory.mustache</literal></para>
                         <para>Property used to pass user-configured <literal>MustacheFactory</literal>.</para>
                     </listitem>
+                    <listitem>
+                        <para><literal>MustacheMvcFeature.ENCODING</literal> -
+                            <literal>jersey.config.server.mvc.encoding.mustache</literal></para>
+                        <para>Property used to configure a default encoding that will be used
+                            if none is specified in &jaxrs.Produces; annotation. If property is not defined
+                            the UTF-8 encoding will be used as a default value.</para>
+                    </listitem>
                 </itemizedlist>
             </para>
             <para>
@@ -530,7 +537,7 @@ public ShortenedLink createLink(@NotEmpty @FormParam("link") final String link) 
     &lt;version&gt;&version;&lt;/version&gt;
 &lt;/dependency&gt;</programlisting>
 
-                and for non-Maven users the list of dependencies is available at &jersey-mvc-mustache;.
+                and for non-Maven users the list of dependencies is available at &jersey.ext.mvc-mustache.deps.link;.
             </para>
         </section>
 
@@ -594,6 +601,14 @@ public ShortenedLink createLink(@NotEmpty @FormParam("link") final String link) 
                             <literal>jersey.config.server.mvc.factory.freemarker</literal></para>
                         <para>Property used to pass user-configured <literal>FreemarkerFactory</literal>.</para>
                     </listitem>
+                    <listitem>
+                        <para><literal>FreemarkerMvcFeature.ENCODING</literal> -
+                            <literal>jersey.config.server.mvc.encoding.freemarker</literal></para>
+                        <para>Property used to configure a default encoding that will be used
+                            if none is specified in &jaxrs.Produces; annotation. If property is not defined
+                            the UTF-8 encoding will be used as a default value.</para>
+                    </listitem>
+
                 </itemizedlist>
             </para>
             <para>
@@ -605,7 +620,7 @@ public ShortenedLink createLink(@NotEmpty @FormParam("link") final String link) 
     &lt;version&gt;&version;&lt;/version&gt;
 &lt;/dependency&gt;</programlisting>
 
-                and for non-Maven users the list of dependencies is available at &jersey-mvc-freemarker;.
+                and for non-Maven users the list of dependencies is available at &jersey.ext.mvc-freemarker.deps.link;.
             </para>
         </section>
 
@@ -690,7 +705,7 @@ public ShortenedLink createLink(@NotEmpty @FormParam("link") final String link) 
                 <itemizedlist>
                     <listitem>
                         <para><literal>JspMvcFeature.TEMPLATE_BASE_PATH</literal> -
-                            <literal>jersey.config.server.mvc.templateBasepath.jsp</literal></para>
+                            <literal>jersey.config.server.mvc.templateBasePath.jsp</literal></para>
                         <para>The base path where JSP templates are located.</para>
                     </listitem>
                 </itemizedlist>
@@ -704,7 +719,7 @@ public ShortenedLink createLink(@NotEmpty @FormParam("link") final String link) 
     &lt;version&gt;&version;&lt;/version&gt;
 &lt;/dependency&gt;</programlisting>
 
-                and for non-Maven users the list of dependencies is available at &jersey-mvc-jsp;.
+                and for non-Maven users the list of dependencies is available at &jersey.ext.mvc-jsp.deps.link;.
             </para>
         </section>
     </section>
@@ -779,7 +794,7 @@ class MyTemplateProcessor implements TemplateProcessor<String> {
         <para>
             If you want to use just templating API infrastructure provided by Jersey for the MVC templating support in order to
             implement your custom support for a templating engine other than the ones provided by Jersey,
-            you will need to add the base &jersey-mvc; module into the list of your dependencies:
+            you will need to add the base &jersey.ext.mvc.deps.link; module into the list of your dependencies:
 
             <programlisting language="xml">&lt;dependency&gt;
     &lt;groupId&gt;org.glassfish.jersey.ext&lt;/groupId&gt;
@@ -792,6 +807,7 @@ class MyTemplateProcessor implements TemplateProcessor<String> {
     <section>
         <title>Other Examples</title>
 
-        <para>To see an example of MVC (JSP) templating support in Jersey refer to the &jersey.github.mvc.example.path;.</para>
+        <para>To see an example of MVC (JSP) templating support in Jersey refer to the
+            <link xlink:href='&jersey.github.examples.uri;/bookstore-webapp'>MVC (Bookstore) Example</link>.</para>
     </section>
 </chapter>

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -103,27 +103,27 @@ public abstract class TracingLogger {
     private static final TracingLogger EMPTY = new TracingLogger() {
 
         @Override
-        public boolean isLogEnabled(Event event) {
+        public boolean isLogEnabled(final Event event) {
             return false;
         }
 
         @Override
-        public void log(Event event, Object... args) {
+        public void log(final Event event, final Object... args) {
             // no-op
         }
 
         @Override
-        public void logDuration(Event event, long fromTimestamp, Object... args) {
+        public void logDuration(final Event event, final long fromTimestamp, final Object... args) {
             // no-op
         }
 
         @Override
-        public long timestamp(Event event) {
+        public long timestamp(final Event event) {
             return -1;
         }
 
         @Override
-        public void flush(MultivaluedMap<String, Object> headers) {
+        public void flush(final MultivaluedMap<String, Object> headers) {
             // no-op
         }
     };
@@ -135,7 +135,8 @@ public abstract class TracingLogger {
      * @param propertiesDelegate request associated runtime properties. Can be {@code null} if not running on server side.
      * @return returns instance of {@code TracingLogger} from {@code propertiesDelegate}. Does not return {@code null}.
      */
-    public static TracingLogger getInstance(PropertiesDelegate propertiesDelegate) {
+    // TODO look for places where getInstance(RequestProcessingContext) would make sense
+    public static TracingLogger getInstance(final PropertiesDelegate propertiesDelegate) {
         if (propertiesDelegate == null) {
             //not server side
             return EMPTY;
@@ -151,7 +152,7 @@ public abstract class TracingLogger {
      * @param loggerNameSuffix tracing logger name suffix.
      * @return new tracing logger.
      */
-    public static TracingLogger create(Level threshold, String loggerNameSuffix) {
+    public static TracingLogger create(final Level threshold, final String loggerNameSuffix) {
         return new TracingLoggerImpl(threshold, loggerNameSuffix);
     }
 
@@ -218,7 +219,7 @@ public abstract class TracingLogger {
         private final Level threshold;
         private final TracingInfo tracingInfo;
 
-        public TracingLoggerImpl(Level threshold, String loggerNameSuffix) {
+        public TracingLoggerImpl(final Level threshold, String loggerNameSuffix) {
             this.threshold = threshold;
 
             this.tracingInfo = new TracingInfo();
@@ -228,17 +229,17 @@ public abstract class TracingLogger {
         }
 
         @Override
-        public boolean isLogEnabled(Event event) {
+        public boolean isLogEnabled(final Event event) {
             return isEnabled(event.level());
         }
 
         @Override
-        public void log(Event event, Object... args) {
+        public void log(final Event event, final Object... args) {
             logDuration(event, -1, args);
         }
 
         @Override
-        public void logDuration(Event event, long fromTimestamp, Object... args) {
+        public void logDuration(final Event event, final long fromTimestamp, final Object... args) {
             if (isEnabled(event.level())) {
                 final long toTimestamp;
                 if (fromTimestamp == -1) {
@@ -255,7 +256,7 @@ public abstract class TracingLogger {
         }
 
         @Override
-        public long timestamp(Event event) {
+        public long timestamp(final Event event) {
             if (isEnabled(event.level())) {
                 return System.nanoTime();
             }
@@ -306,15 +307,13 @@ public abstract class TracingLogger {
                         loggingLevel = java.util.logging.Level.OFF;
                 }
                 if (logger.isLoggable(loggingLevel)) {
-                    StringBuilder textSB = new StringBuilder();
-                    textSB.append(event.name()).append(' ').append(message.toString());
-                    textSB.append(" [").append(TracingInfo.formatDuration(duration)).append(" ms]");
-                    logger.log(loggingLevel, textSB.toString());
+                    logger.log(loggingLevel,
+                            event.name() + ' ' + message.toString() + " [" + TracingInfo.formatDuration(duration) + " ms]");
                 }
             }
         }
 
-        private boolean isEnabled(Level level) {
+        private boolean isEnabled(final Level level) {
             return threshold.ordinal() >= level.ordinal();
         }
 
@@ -326,7 +325,7 @@ public abstract class TracingLogger {
          * @param instance instance to be formatted
          * @return Formatted info of instance.
          */
-        private static String formatInstance(Object instance) {
+        private static String formatInstance(final Object instance) {
             final StringBuilder textSB = new StringBuilder();
             if (instance == null) {
                 textSB.append("null");
@@ -356,7 +355,7 @@ public abstract class TracingLogger {
          * @param instance instance to be formatted
          * @param textSB   Formatted info will be appended to {@code StringBuilder}
          */
-        private static void formatInstance(Object instance, StringBuilder textSB) {
+        private static void formatInstance(final Object instance, final StringBuilder textSB) {
             textSB.append(instance.getClass().getName()).append(" @").
                     append(Integer.toHexString(System.identityHashCode(instance)));
         }
@@ -367,7 +366,7 @@ public abstract class TracingLogger {
          * @param response response to be formatted
          * @param textSB   Formatted info will be appended to {@code StringBuilder}
          */
-        private static void formatResponse(Response response, StringBuilder textSB) {
+        private static void formatResponse(final Response response, final StringBuilder textSB) {
             textSB.append(" <").append(formatStatusInfo(response.getStatusInfo())).append('|');
             if (response.hasEntity()) {
                 formatInstance(response.getEntity(), textSB);
@@ -377,14 +376,8 @@ public abstract class TracingLogger {
             textSB.append('>');
         }
 
-        private static String formatStatusInfo(Response.StatusType statusInfo) {
-            final StringBuilder textSB = new StringBuilder();
-
-            textSB.append(statusInfo.getStatusCode()).append('/').
-                    append(statusInfo.getFamily()).append('|').
-                    append(statusInfo.getReasonPhrase());
-
-            return textSB.toString();
+        private static String formatStatusInfo(final Response.StatusType statusInfo) {
+            return String.valueOf(statusInfo.getStatusCode()) + '/' + statusInfo.getFamily() + '|' + statusInfo.getReasonPhrase();
         }
     }
 
@@ -437,8 +430,7 @@ public abstract class TracingLogger {
 
         /**
          * Message format. Use {@link String#format(String, Object...)} format.
-         * Can be null. In that case message arguments are separated by space
-         * (see {@link TracingLoggerImpl#logImpl(Event, long, Object...)}.
+         * Can be null. In that case message arguments are separated by space.
          *
          * @return message format
          */

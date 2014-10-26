@@ -3,7 +3,7 @@
 
     DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 
-    Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+    Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
 
     The contents of this file are subject to the terms of either the GNU
     General Public License Version 2 only ("GPL") or the Common Development
@@ -66,7 +66,7 @@
             Jersey JSON support comes as a set of extension modules where each of these modules contains an implementation of
             a &jaxrs.core.Feature; that needs to be registered into your &jaxrs.core.Configurable; instance (client/server).
             There are multiple frameworks that provide support for JSON processing and/or JSON-to-Java binding.
-            The modules listed bellow provide support for JSON representations by integrating the individual JSON frameworks into
+            The modules listed below provide support for JSON representations by integrating the individual JSON frameworks into
             Jersey. At present, Jersey integrates with the following modules to provide JSON support:
 
             <itemizedlist>
@@ -116,19 +116,19 @@
                 JSON data format.
             </para>
 
-            <section>
+            <section xml:id="json-pojo">
                 <title>POJO support</title>
 
                 <para>POJO support represents the easiest way to convert your Java Objects to JSON and back.</para>
                 <para>Media modules that support this approach are &link.moxy; and &link.jackson;</para>
             </section>
 
-            <section>
+            <section xml:id="json-jaxb">
                 <title>JAXB based JSON support</title>
 
                 <para>
                     Taking this approach will save you a lot of time, if you want to easily produce/consume both JSON and XML
-                    data format. With JAXB beans you will be able to use a the same Java model to generate JSON as well as XML
+                    data format. With JAXB beans you will be able to use the same Java model to generate JSON as well as XML
                     representations.
                     Another advantage is simplicity of working with such a model and availability of the API in Java SE Platform.
                     JAXB leverages annotated POJOs and these could be handled as simple Java beans.
@@ -202,7 +202,7 @@ public class MyJaxbBean {
                 <para>Media modules that support this approach are &link.moxy;, &link.jackson;, &link.jettison;</para>
             </section>
 
-            <section>
+            <section xml:id="json-lowlevel">
                 <title>Low-level based JSON support</title>
 
                 <para>
@@ -282,10 +282,10 @@ try {
     &lt;version&gt;&version;&lt;/version&gt;
 &lt;/dependency&gt;</programlisting>
 
-                    If you're not using Maven make sure to have all needed dependencies (see &jersey-media-moxy;) on the classpath.
+                    If you're not using Maven make sure to have all needed dependencies (see &jersey.media.moxy.deps.link;) on the classpath.
                 </para>
             </section>
-            <section>
+            <section xml:id="moxy-registration">
                 <title>Configure and register</title>
 
                 <para>
@@ -357,27 +357,17 @@ final MoxyJsonConfig configuration = new MoxyJsonConfig()
                     &lit.jaxrs.ext.ContextResolver; in your client/server code.
 
                     <example>
-                        <title><literal>ContextResolver&lt;MoxyJsonConfig&gt;</literal></title>
+                        <title>Creating <literal>ContextResolver&lt;MoxyJsonConfig&gt;</literal></title>
 
-                        <programlisting language="java">@Provider
-public class JsonMoxyConfigurationContextResolver implements ContextResolver&lt;MoxyJsonConfig&gt; {
+                        <programlisting language="java">final Map&lt;String, String&gt; namespacePrefixMapper = new HashMap&lt;String, String&gt;();
+namespacePrefixMapper.put("http://www.w3.org/2001/XMLSchema-instance", "xsi");
 
-    private final MoxyJsonConfig config;
-
-    public JsonMoxyConfigurationContextResolver() {
-        final Map&lt;String, String&gt; namespacePrefixMapper = new HashMap&lt;String, String&gt;();
-        namespacePrefixMapper.put("http://www.w3.org/2001/XMLSchema-instance", "xsi");
-
-        config = MoxyJsonConfig()
+final MoxyJsonConfig moxyJsonConfig = MoxyJsonConfig()
             .setNamespacePrefixMapper(namespacePrefixMapper)
             .setNamespaceSeparator(':');
-    }
 
-    @Override
-    public MoxyJsonConfig getContext(Class&lt;?&gt; objectType) {
-        return config;
-    }
-}</programlisting>
+final ContextResolver&lt;MoxyJsonConfig&gt; jsonConfigResolver = moxyJsonConfig.resolver();
+</programlisting>
                     </example>
                 </para>
 
@@ -430,29 +420,29 @@ public class JsonMoxyConfigurationContextResolver implements ContextResolver&lt;
                     </table>
                 </para>
 
-                <example>
+                <example xml:id="ex-moxy-client">
                     <title>Building client with MOXy JSON feature enabled.</title>
 
                     <programlisting language="java">final Client client = ClientBuilder.newBuilder()
-        // The line bellow that registers MOXy feature can be
+        // The line below that registers MOXy feature can be
         // omitted if FEATURE_AUTO_DISCOVERY_DISABLE is
         // not disabled.
         .register(MoxyJsonFeature.class)
-        .register(JsonMoxyConfigurationContextResolver.class)
+        .register(jsonConfigResolver)
         .build();</programlisting>
                 </example>
 
-                <example>
+                <example xml:id="ex-moxy-server">
                     <title>Creating JAX-RS application with MOXy JSON feature enabled.</title>
 
                     <programlisting language="java">// Create JAX-RS application.
 final Application application = new ResourceConfig()
         .packages("org.glassfish.jersey.examples.jsonmoxy")
-        // The line bellow that registers MOXy feature can be
+        // The line below that registers MOXy feature can be
         // omitted if FEATURE_AUTO_DISCOVERY_DISABLE is
         // not disabled.
         .register(MoxyJsonFeature.class)
-        .register(JsonMoxyConfigurationContextResolver.class);</programlisting>
+        .register(jsonConfigResolver);</programlisting>
                 </example>
             </section>
 
@@ -460,7 +450,8 @@ final Application application = new ResourceConfig()
                 <title>Examples</title>
 
                 <para>
-                    Jersey provides an &jersey.github.moxy.json.example.path; on how to use MOXy to consume/produce JSON.
+                    Jersey provides a <link xlink:href='&jersey.github.examples.uri;/json-moxy'>JSON MOXy example</link>
+                    on how to use MOXy to consume/produce JSON.
                 </para>
             </section>
         </section>
@@ -481,11 +472,11 @@ final Application application = new ResourceConfig()
     &lt;version&gt;&version;&lt;/version&gt;
 &lt;/dependency&gt;</programlisting>
 
-                    If you're not using Maven make sure to have all needed dependencies (see &jersey-media-json-processing;)
+                    If you're not using Maven make sure to have all needed dependencies (see &jersey.media.json-processing.deps.link;)
                     on the class-path.
                 </para>
             </section>
-            <section>
+            <section xml:id="jsonp-registration">
                 <title>Configure and register</title>
 
                 <para>
@@ -531,7 +522,7 @@ final Application application = new ResourceConfig()
                     <title>Building client with JSON-Processing JSON feature enabled.</title>
 
                     <programlisting language="java">ClientBuilder.newClient(new ClientConfig()
-        // The line bellow that registers JSON-Processing feature can be
+        // The line below that registers JSON-Processing feature can be
         // omitted if FEATURE_AUTO_DISCOVERY_DISABLE is not disabled.
         .register(JsonProcessingFeature.class)
         .property(JsonGenerator.PRETTY_PRINTING, true)
@@ -543,7 +534,7 @@ final Application application = new ResourceConfig()
 
                     <programlisting language="java">// Create JAX-RS application.
 final Application application = new ResourceConfig()
-        // The line bellow that registers JSON-Processing feature can be
+        // The line below that registers JSON-Processing feature can be
         // omitted if FEATURE_AUTO_DISCOVERY_DISABLE is not disabled.
         .register(JsonProcessingFeature.class)
         .packages("org.glassfish.jersey.examples.jsonp")
@@ -554,18 +545,19 @@ final Application application = new ResourceConfig()
             <section>
                 <title>Examples</title>
 
-                <para>Jersey provides an &jersey.github.json.processing.example.path; on how to use JSON-Processing to
-                    consume/produce JSON.</para>
+                <para>Jersey provides a
+                    <link xlink:href='&jersey.github.examples.uri;/json-processing-webapp'>JSON Processing example</link>
+                    on how to use JSON-Processing to consume/produce JSON.</para>
             </section>
         </section>
         <section xml:id="json.jackson">
-            <title>Jackson</title>
+            <title>Jackson (1.x and 2.x)</title>
 
             <section>
                 <title>Dependency</title>
 
                 <para>
-                    To use Jackson as your JSON provider you need to add &lit.jersey-media-json-jackson; module to your
+                    To use Jackson 2.x as your JSON provider you need to add &lit.jersey-media-json-jackson; module to your
                     &lit.pom.xml; file:
 
                     <programlisting language="xml" linenumbering="unnumbered">&lt;dependency&gt;
@@ -574,26 +566,41 @@ final Application application = new ResourceConfig()
     &lt;version&gt;&version;&lt;/version&gt;
 &lt;/dependency&gt;</programlisting>
 
-                    If you're not using Maven make sure to have all needed dependencies (see &jersey-media-json-jackson;) on
-                    the classpath.
+                    To use Jackson 1.x it'll look like:
+
+                    <programlisting language="xml" linenumbering="unnumbered">&lt;dependency&gt;
+    &lt;groupId&gt;org.glassfish.jersey.media&lt;/groupId&gt;
+    &lt;artifactId&gt;jersey-media-json-jackson1&lt;/artifactId&gt;
+    &lt;version&gt;&version;&lt;/version&gt;
+&lt;/dependency&gt;</programlisting>
+
+                    If you're not using Maven make sure to have all needed dependencies (see &jersey.media.json-jackson.deps.link; or
+                    &jersey.media.json-jackson.deps.link;) on the classpath.
                 </para>
             </section>
-            <section>
+            <section xml:id="jackson-registration">
                 <title>Configure and register</title>
 
+                <note>
+                    <para>
+                        Note that there is a difference in namespaces between Jackson 1.x (<literal>org.codehaus.jackson</literal>)
+                        and Jackson 2.x (<literal>com.fasterxml.jackson</literal>).
+                    </para>
+                </note>
+
                 <para>
-                    Jackson JSON processor could be controlled via providing a custom Jackson &jersey.media.ObjectMapper;
-                    instance.
+                    Jackson JSON processor could be controlled via providing a custom Jackson 2 &jersey.media.ObjectMapper; (or
+                    &jersey.media.ObjectMapper1; for Jackson 1) instance.
                     This could be handy if you need to redefine the default Jackson behaviour and to fine-tune how your JSON data
                     structures look like. Detailed description of all Jackson features is out of scope of this guide. The example
-                    bellow gives you a hint on how to wire your &lit.jersey.media.ObjectMapper; instance into your Jersey
-                    application.
+                    below gives you a hint on how to wire your &lit.jersey.media.ObjectMapper; (&jersey.media.ObjectMapper1;)
+                    instance into your Jersey application.
                 </para>
 
                 <para>
                     In order to use Jackson as your JSON (JAXB/POJO) provider you need to register &jersey.media.JacksonFeature;
-                    and a &lit.jaxrs.ext.ContextResolver; for &lit.jersey.media.ObjectMapper; (if needed) in your
-                    &jaxrs.core.Configurable; (client/server).
+                    (&jersey.media.Jackson1Feature;) and a &lit.jaxrs.ext.ContextResolver; for &lit.jersey.media.ObjectMapper;,
+                    if needed, in your &jaxrs.core.Configurable; (client/server).
 
                     <example>
                         <title><literal>ContextResolver&lt;ObjectMapper&gt;</literal></title>
@@ -654,7 +661,9 @@ final Application application = new ResourceConfig()
                 <title>Examples</title>
 
                 <para>
-                    Jersey provides an &jersey.github.jackson.example.path; on how to use Jackson to consume/produce JSON.
+                    Jersey provides <link xlink:href='&jersey.github.examples.uri;/json-jackson'>JSON Jackson (2.x) example</link>
+                    and <link xlink:href='&jersey.github.examples.uri;/json-jackson1'>JSON Jackson (1.x) example</link> showing
+                    how to use Jackson to consume/produce JSON.
                 </para>
             </section>
         </section>
@@ -684,7 +693,7 @@ final Application application = new ResourceConfig()
     &lt;version&gt;&version;&lt;/version&gt;
 &lt;/dependency&gt;</programlisting>
 
-                    If you're not using Maven make sure to have all needed dependencies (see &jersey-media-json-jettison;) on
+                    If you're not using Maven make sure to have all needed dependencies (see &jersey.media.json-jettison.deps.link;) on
                     the classpath.
                 </para>
             </section>
@@ -709,7 +718,7 @@ final Application application = new ResourceConfig()
                 </para>
 
                 <para>
-                    Individual notations and their further configuration options are described bellow. Rather then explaining
+                    Individual notations and their further configuration options are described below. Rather then explaining
                     rules for mapping XML constructs into JSON, the notations will be described using a simple example. Following
                     are JAXB beans, which will be used.
 
@@ -766,7 +775,7 @@ Contact contact = new Contact(2, "Bob", Arrays.asList(addresses));</programlisti
                 </para>
 
                 <para>
-                    All bellow described configuration options are documented also in api-docs at &jersey.media.JettisonConfig;.
+                    All below described configuration options are documented also in api-docs at &jersey.media.JettisonConfig;.
                 </para>
 
                 <section>
@@ -795,7 +804,7 @@ context = new JettisonJaxbContext(
     types);</programlisting>
                         </example>
 
-                        Resulting JSON will look like in the example bellow.
+                        Resulting JSON will look like in the example below.
 
                         <example>
                             <title>JSON expression with XML namespaces mapped into JSON</title>
@@ -830,7 +839,7 @@ context = new JettisonJaxbContext(
     types);</programlisting>
                         </example>
 
-                        Resulting JSON will look like in the example bellow, unimportant lines removed for sanity.
+                        Resulting JSON will look like in the example below, unimportant lines removed for sanity.
 
                         <example>
                             <title>JSON expression with JSON arrays explicitly configured via Jersey</title>
@@ -889,7 +898,7 @@ context = new JettisonJaxbContext(
                 </section>
             </section>
 
-            <section>
+            <section xml:id="jettison-registration">
                 <title>Configure and register</title>
 
                 <para>
@@ -944,7 +953,8 @@ final Application application = new ResourceConfig()
                 <title>Examples</title>
 
                 <para>
-                    Jersey provides an &jersey.github.jettison.example.path; on how to use Jettison to consume/produce JSON.
+                    Jersey provides an <link xlink:href='&jersey.github.examples.uri;/json-jettison'>JSON Jettison example</link>
+                    on how to use Jettison to consume/produce JSON.
                 </para>
             </section>
         </section>
@@ -953,8 +963,8 @@ final Application application = new ResourceConfig()
             <title><literal>@JSONP</literal> - JSON with Padding Support</title>
 
             <para>
-                Jersey provides out-of-the-box support for &wiki.JSONP; - JSON with padding. The following conditions has to be
-                met to take advantage of this capability:
+                Jersey provides out-of-the-box support for <link xlink:href='&wikipedia.uri;/JSONP'>JSONP</link>
+                - JSON with padding. The following conditions has to be met to take advantage of this capability:
 
                 <itemizedlist>
                     <listitem>
@@ -1085,7 +1095,8 @@ public JaxbBean getSimpleJSONP() {
             <formalpara>
                 <title>Example</title>
                 <para>
-                    You can take a look at a provided example available at &jersey.github.json.with.padding.example.path;.
+                    You can take a look at a provided
+                    <link xlink:href='&jersey.github.examples.uri;/json-with-padding'>JSON with Padding example</link>.
                 </para>
             </formalpara>
         </section>
@@ -1107,7 +1118,8 @@ public JaxbBean getSimpleJSONP() {
             <para>
                 Jersey currently support several low level data types: &jdk7.StreamSource;, &jdk7.SAXSource;, &jdk7.DOMSource;
                 and &jdk7.org.w3c.dom.Document;. You can use these types as the return type or as a method (resource) parameter.
-                Lets say we want to test this feature and we have &jersey.github.helloworld.example.path; as a starting point.
+                Lets say we want to test this feature and we have
+                <link xlink:href='&jersey.github.examples.uri;/helloworld'>helloworld example</link> as a starting point.
                 All we need to do is add methods (resources) which consumes and produces XML and types mentioned above will be
                 used.
             </para>
@@ -1157,9 +1169,9 @@ public Document getDocument(Document document) {
 
             <para>
                 Good start for people which already have some experience with JAXB annotations
-                is &jersey.github.jaxb.example.path;. You can see various use-cases there. This text is mainly meant for those who
-                don't have prior experience with JAXB. Don't expect that all possible annotations and their combinations will be
-                covered in this chapter,
+                is <link xlink:href='&jersey.github.examples.uri;/jaxb'>JAXB example</link>. You can see various use-cases there.
+                This text is mainly meant for those who don't have prior experience with JAXB. Don't expect that all possible
+                annotations and their combinations will be covered in this chapter,
                 <link xlink:href='http://jaxb.java.net'>JAXB (JSR 222 implementation)</link>
                 is pretty complex and comprehensive. But if you just want to know how you can interchange XML messages with your
                 REST service, you are looking at the right chapter.
@@ -1374,7 +1386,7 @@ Client client = ClientBuilder.newClient(config);
                 the <literal>JAXBContextFactory</literal> from which a &lit.jaxb.JAXBContext; instance would be obtained (for more
                 on this topic, read JavaDoc on &jaxb.JAXBContext;) or you can add <literal>jersey-media-moxy</literal> module to
                 your project and register/configure
-                <link xlink:href='&jersey.javadoc.path;/moxy/xml/MoxyXmlFeature.html'>MoxyXmlFeature</link> class/instance in
+                <link xlink:href='&jersey.javadoc.uri.prefix;/moxy/xml/MoxyXmlFeature.html'>MoxyXmlFeature</link> class/instance in
                 the &jaxrs.core.Configurable;.
             </para>
 
@@ -1417,6 +1429,7 @@ final ResourceConfig config = new ResourceConfig()
 
     <section xml:id="multipart">
         <title>Multipart</title>
+        <titleabbrev id="multipart.short">Multipart</titleabbrev>
 
         <section>
             <title>Overview</title>
@@ -1474,7 +1487,7 @@ final ResourceConfig config = new ResourceConfig()
     &lt;version&gt;&version;&lt;/version&gt;
 &lt;/dependency&gt;</programlisting>
 
-                    If you're not using Maven make sure to have all needed dependencies (see &jersey-media-multipart;) on the
+                    If you're not using Maven make sure to have all needed dependencies (see &jersey.media.multipart.deps.link;) on the
                     class-path.
                 </para>
             </section>
@@ -1508,7 +1521,9 @@ final Application application = new ResourceConfig()
             <section>
                 <title>Examples</title>
 
-                <para>Jersey provides an &jersey.github.multipart.example.path; on how to use multipart features.</para>
+                <para>Jersey provides a
+                    <link xlink:href='&jersey.github.examples.uri;/multipart-webapp'>Multipart Web Application Example</link>
+                    on how to use multipart features.</para>
             </section>
         </section>
 
@@ -1517,8 +1532,10 @@ final Application application = new ResourceConfig()
 
             <para>
                 &jersey.media.multipart.MultiPart; class (or it's subclasses) can be used as an entry point to using
-                &lit.jersey-media-multipart; module on the client side. This class represents a &wiki.Multipart; and is able
-                to hold an arbitrary number of &jersey.media.multipart.BodyPart;s. Default media type is &wiki.MultipartMixed;
+                &lit.jersey-media-multipart; module on the client side. This class represents a
+                <link xlink:href='&wikipedia.uri;/MIME#Multipart_messages'>MIME multipart message</link> and is able
+                to hold an arbitrary number of &jersey.media.multipart.BodyPart;s. Default media type is
+                <link xlink:href='&wikipedia.uri;/MIME#Mixed'>multipart/mixed</link>
                 for &lit.jersey.media.multipart.MultiPart; entity and <literal>text/plain</literal> for
                 &lit.jersey.media.multipart.BodyPart;.
 
@@ -1624,6 +1641,13 @@ final Response response = target.request()
     .post(Entity.entity(multipart, multipart.getMediaType()));</programlisting>
                 </example>
             </para>
+            <warning>
+                <para>
+                    Do not use &lit.jersey.apache.ApacheConnectorProvider; nor &lit.jersey.grizzly.GrizzlyConnectorProvider;
+                    neither &lit.jersey.jetty.JettyConnectorProvider; connector implementations with Jersey Multipart
+                    features. See <xref linkend="connectors.warning"/> warning for more details.
+                </para>
+            </warning>
         </section>
 
         <section>

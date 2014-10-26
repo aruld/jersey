@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -47,9 +47,9 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.ws.rs.Priorities;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -67,15 +67,17 @@ import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 
+import javax.annotation.Priority;
+
 import org.glassfish.jersey.client.ClientProperties;
 import org.glassfish.jersey.client.internal.LocalizationMessages;
-import org.glassfish.jersey.internal.util.PropertiesHelper;
 
 /**
  * Http Authentication filter that provides basic and digest authentication (based on RFC 2617).
  *
  * @author Miroslav Fuksa (miroslav.fuksa at oracle.com)
  */
+@Priority(Priorities.AUTHENTICATION)
 class HttpAuthenticationFilter implements ClientRequestFilter, ClientResponseFilter {
     /**
      * Authentication type.
@@ -91,7 +93,6 @@ class HttpAuthenticationFilter implements ClientRequestFilter, ClientResponseFil
         DIGEST
     }
 
-    private static final Logger LOGGER = Logger.getLogger(HttpAuthenticationFilter.class.getName());
     private final static String REQUEST_PROPERTY_FILTER_REUSED = "org.glassfish.jersey.client.authentication.HttpAuthenticationFilter.reused";
     private final static String REQUEST_PROPERTY_OPERATION = "org.glassfish.jersey.client.authentication.HttpAuthenticationFilter.operation";
 
@@ -129,8 +130,8 @@ class HttpAuthenticationFilter implements ClientRequestFilter, ClientResponseFil
         int limit = getMaximumCacheLimit(configuration);
 
         final int uriCacheLimit = limit * 2; // 2 is chosen to estimate there will be two times URIs
-                                             // for basic and digest together than only digest
-                                             // (limit estimates digest max URI number)
+        // for basic and digest together than only digest
+        // (limit estimates digest max URI number)
 
         uriCache = Collections.synchronizedMap(new LinkedHashMap<String, Type>(uriCacheLimit) {
             private static final long serialVersionUID = 1946245645415625L;
@@ -162,7 +163,7 @@ class HttpAuthenticationFilter implements ClientRequestFilter, ClientResponseFil
     }
 
     private int getMaximumCacheLimit(Configuration configuration) {
-        int limit = PropertiesHelper.getValue(configuration.getProperties(),
+        int limit = ClientProperties.getValue(configuration.getProperties(),
                 ClientProperties.DIGESTAUTH_URI_CACHE_SIZELIMIT, MAXIMUM_DIGEST_CACHE_SIZE);
         if (limit < 1) {
             limit = MAXIMUM_DIGEST_CACHE_SIZE;

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2010-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -45,13 +45,13 @@ import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.Principal;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.ws.rs.core.Application;
 import javax.ws.rs.core.SecurityContext;
 
 import javax.inject.Inject;
@@ -68,15 +68,14 @@ import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.ContainerResponse;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.internal.ConfigHelper;
+import org.glassfish.jersey.server.internal.ContainerUtils;
 import org.glassfish.jersey.server.spi.Container;
 import org.glassfish.jersey.server.spi.ContainerLifecycleListener;
 import org.glassfish.jersey.server.spi.ContainerResponseWriter;
 import org.glassfish.jersey.server.spi.RequestScopedInitializer;
 
-import org.glassfish.hk2.api.PerLookup;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.api.TypeLiteral;
-import org.glassfish.hk2.utilities.Binder;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
 
 import org.simpleframework.http.Address;
@@ -85,23 +84,26 @@ import org.simpleframework.http.Response;
 import org.simpleframework.http.Status;
 
 /**
- * Simple Jersey HTTP Container.
+ * Jersey {@code Container} implementation based on Simple framework {@link org.simpleframework.http.core.Container}.
  *
  * @author Arul Dhesiaseelan (aruld@acm.org)
+ * @author Marek Potociar (marek.potociar at oracle.com)
  */
 public final class SimpleContainer implements org.simpleframework.http.core.Container, Container {
     private static final ExtendedLogger logger =
             new ExtendedLogger(Logger.getLogger(SimpleContainer.class.getName()), Level.FINEST);
 
-    private static final Type RequestTYPE = (new TypeLiteral<Ref<Request>>(){}).getType();
-    private static final Type ResponseTYPE = (new TypeLiteral<Ref<Response>>(){}).getType();
+    private final Type RequestTYPE = (new TypeLiteral<Ref<Request>>() {
+    }).getType();
+    private final Type ResponseTYPE = (new TypeLiteral<Ref<Response>>() {
+    }).getType();
 
     /**
      * Referencing factory for Simple request.
      */
     private static class SimpleRequestReferencingFactory extends ReferencingFactory<Request> {
         @Inject
-        public SimpleRequestReferencingFactory(Provider<Ref<Request>> referenceFactory) {
+        public SimpleRequestReferencingFactory(final Provider<Ref<Request>> referenceFactory) {
             super(referenceFactory);
         }
     }
@@ -111,7 +113,7 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
      */
     private static class SimpleResponseReferencingFactory extends ReferencingFactory<Response> {
         @Inject
-        public SimpleResponseReferencingFactory(Provider<Ref<Response>> referenceFactory) {
+        public SimpleResponseReferencingFactory(final Provider<Ref<Response>> referenceFactory) {
             super(referenceFactory);
         }
     }
@@ -124,20 +126,24 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
 
         @Override
         protected void configure() {
-            bindFactory(SimpleRequestReferencingFactory.class).to(Request.class).in(PerLookup.class);
+            bindFactory(SimpleRequestReferencingFactory.class).to(Request.class)
+                    .proxy(true).proxyForSameScope(false).in(RequestScoped.class);
             bindFactory(ReferencingFactory.<Request>referenceFactory()).to(new TypeLiteral<Ref<Request>>() {
-            }).in(RequestScoped.class);
+            })
+                    .in(RequestScoped.class);
 
-            bindFactory(SimpleResponseReferencingFactory.class).to(Response.class).in(PerLookup.class);
+            bindFactory(SimpleResponseReferencingFactory.class).to(Response.class)
+                    .proxy(true).proxyForSameScope(false).in(RequestScoped.class);
             bindFactory(ReferencingFactory.<Response>referenceFactory()).to(new TypeLiteral<Ref<Response>>() {
-            }).in(RequestScoped.class);
+            })
+                    .in(RequestScoped.class);
         }
     }
 
     private volatile ApplicationHandler appHandler;
     private volatile ContainerLifecycleListener containerListener;
 
-    private final static class Writer implements ContainerResponseWriter {
+    private static final class Writer implements ContainerResponseWriter {
         private final Response response;
 
         Writer(final Response response) {
@@ -145,7 +151,7 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
         }
 
         @Override
-        public OutputStream writeResponseStatusAndHeaders(long contentLength, ContainerResponse context) throws ContainerException {
+        public OutputStream writeResponseStatusAndHeaders(final long contentLength, final ContainerResponse context) throws ContainerException {
             final javax.ws.rs.core.Response.StatusType statusInfo = context.getStatusInfo();
 
             final int code = statusInfo.getStatusCode();
@@ -162,18 +168,18 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
 
             try {
                 return response.getOutputStream();
-            } catch (IOException ioe) {
+            } catch (final IOException ioe) {
                 throw new ContainerException("Error during writing out the response headers.", ioe);
             }
         }
 
         @Override
-        public boolean suspend(long timeOut, TimeUnit timeUnit, TimeoutHandler timeoutHandler) {
+        public boolean suspend(final long timeOut, final TimeUnit timeUnit, final TimeoutHandler timeoutHandler) {
             throw new UnsupportedOperationException("Method suspend is not supported by the container.");
         }
 
         @Override
-        public void setSuspendTimeout(long timeOut, TimeUnit timeUnit) throws IllegalStateException {
+        public void setSuspendTimeout(final long timeOut, final TimeUnit timeUnit) throws IllegalStateException {
             throw new UnsupportedOperationException("Method suspend is not supported by the container.");
         }
 
@@ -181,7 +187,7 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
         public void commit() {
             try {
                 response.close();
-            } catch (IOException e) {
+            } catch (final IOException e) {
                 logger.log(Level.SEVERE, "Unable to send 500 error response.", e);
             } finally {
                 logger.debugLog("commit() called");
@@ -189,7 +195,7 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
         }
 
         @Override
-        public void failure(Throwable error) {
+        public void failure(final Throwable error) {
             try {
                 if (!response.isCommitted()) {
                     response.setCode(500);
@@ -213,7 +219,7 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
          *
          * @param error throwable to be re-thrown
          */
-        private void rethrow(Throwable error) {
+        private void rethrow(final Throwable error) {
             if (error instanceof RuntimeException) {
                 throw (RuntimeException) error;
             } else {
@@ -227,7 +233,7 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
     public void handle(final Request request, final Response response) {
         final Writer responseWriter = new Writer(response);
         final URI baseUri = getBaseUri(request);
-        final URI requestUri = baseUri.resolve(request.getTarget());
+        final URI requestUri = baseUri.resolve(ContainerUtils.encodeUnsafeCharacters(request.getTarget()));
 
         try {
             final ContainerRequest requestContext = new ContainerRequest(
@@ -237,20 +243,20 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
                     getSecurityContext(request),
                     new MapPropertiesDelegate());
             requestContext.setEntityStream(request.getInputStream());
-            for (String headerName : request.getNames()) {
+            for (final String headerName : request.getNames()) {
                 requestContext.headers(headerName, request.getValue(headerName));
             }
             requestContext.setWriter(responseWriter);
             requestContext.setRequestScopedInitializer(new RequestScopedInitializer() {
                 @Override
-                public void initialize(ServiceLocator locator) {
+                public void initialize(final ServiceLocator locator) {
                     locator.<Ref<Request>>getService(RequestTYPE).set(request);
                     locator.<Ref<Response>>getService(ResponseTYPE).set(response);
                 }
             });
 
             appHandler.handle(requestContext);
-        } catch (Exception ex) {
+        } catch (final Exception ex) {
             throw new RuntimeException(ex);
         } finally {
             close(response);
@@ -261,7 +267,7 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
         return new SecurityContext() {
 
             @Override
-            public boolean isUserInRole(String role) {
+            public boolean isUserInRole(final String role) {
                 return false;
             }
 
@@ -283,15 +289,15 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
     }
 
 
-    private void close(Response response) {
+    private void close(final Response response) {
         try {
             response.close();
-        } catch (Exception ex) {
+        } catch (final Exception ex) {
             throw new RuntimeException(ex);
         }
     }
 
-    private URI getBaseUri(Request request) {
+    private URI getBaseUri(final Request request) {
         try {
             final Address address = request.getAddress();
 
@@ -302,7 +308,7 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
                     address.getPort(),
                     "/",
                     null, null);
-        } catch (URISyntaxException ex) {
+        } catch (final URISyntaxException ex) {
             throw new IllegalArgumentException(ex);
         }
     }
@@ -318,12 +324,17 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
     }
 
     @Override
-    public void reload(ResourceConfig configuration) {
+    public void reload(final ResourceConfig configuration) {
         containerListener.onShutdown(this);
         appHandler = new ApplicationHandler(configuration.register(new SimpleBinder()));
         containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
         containerListener.onReload(this);
         containerListener.onStartup(this);
+    }
+
+    @Override
+    public ApplicationHandler getApplicationHandler() {
+        return appHandler;
     }
 
     /**
@@ -345,16 +356,22 @@ public final class SimpleContainer implements org.simpleframework.http.core.Cont
     }
 
     /**
-     * Creates a new Grizzly container.
+     * Create a new Simple framework HTTP container.
      *
-     * @param application Jersey application to be deployed on Grizzly container.
+     * @param application JAX-RS / Jersey application to be deployed on Simple framework HTTP container.
      */
-    SimpleContainer(final ApplicationHandler application) {
-        this.appHandler = application;
-        this.containerListener = ConfigHelper.getContainerLifecycleListener(application);
+    SimpleContainer(final Application application, final ServiceLocator parentLocator) {
+        this.appHandler = new ApplicationHandler(application, new SimpleBinder(), parentLocator);
+        this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
+    }
 
-        this.appHandler.registerAdditionalBinders(new HashSet<Binder>() {{
-            add(new SimpleBinder());
-        }});
+    /**
+     * Create a new Simple framework HTTP container.
+     *
+     * @param application JAX-RS / Jersey application to be deployed on Simple framework HTTP container.
+     */
+    SimpleContainer(final Application application) {
+        this.appHandler = new ApplicationHandler(application, new SimpleBinder());
+        this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
     }
 }

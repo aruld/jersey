@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2010-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -58,6 +58,7 @@ import java.util.logging.Logger;
 
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.core.Configuration;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 
@@ -72,6 +73,7 @@ import org.glassfish.jersey.client.RequestEntityProcessing;
 import org.glassfish.jersey.client.spi.AsyncConnectorCallback;
 import org.glassfish.jersey.client.spi.Connector;
 import org.glassfish.jersey.internal.util.PropertiesHelper;
+import org.glassfish.jersey.message.internal.HeaderUtils;
 import org.glassfish.jersey.message.internal.OutboundMessageContext;
 import org.glassfish.jersey.message.internal.ReaderWriter;
 import org.glassfish.jersey.message.internal.Statuses;
@@ -90,7 +92,6 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
-import org.apache.http.client.params.HttpClientParamConfig;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.config.ConnectionConfig;
 import org.apache.http.config.Registry;
@@ -118,11 +119,10 @@ import org.apache.http.impl.conn.ManagedHttpClientConnectionFactory;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.io.ChunkedOutputStream;
 import org.apache.http.io.SessionOutputBuffer;
-import org.apache.http.params.HttpParams;
 import org.apache.http.util.TextUtils;
 import org.apache.http.util.VersionInfo;
 
-import com.google.common.util.concurrent.MoreExecutors;
+import jersey.repackaged.com.google.common.util.concurrent.MoreExecutors;
 
 /**
  * A {@link Connector} that utilizes the Apache HTTP Client to send and receive
@@ -131,12 +131,12 @@ import com.google.common.util.concurrent.MoreExecutors;
  * The following properties are only supported at construction of this class:
  * <ul>
  * <li>{@link ApacheClientProperties#CONNECTION_MANAGER}</li>
- * <li>{@link ApacheClientProperties#REQUEST_CONFIG} (or {@link ApacheClientProperties#HTTP_PARAMS})</li>
+ * <li>{@link ApacheClientProperties#REQUEST_CONFIG}</li>
  * <li>{@link ApacheClientProperties#CREDENTIALS_PROVIDER}</li>
  * <li>{@link ApacheClientProperties#DISABLE_COOKIES}</li>
- * <li>{@link ClientProperties#PROXY_URI} (or {@link ApacheClientProperties#PROXY_URI})</li>
- * <li>{@link ClientProperties#PROXY_USERNAME} (or {@link ApacheClientProperties#PROXY_USERNAME})</li>
- * <li>{@link ClientProperties#PROXY_PASSWORD} (or {@link ApacheClientProperties#PROXY_PASSWORD})</li>
+ * <li>{@link ClientProperties#PROXY_URI}</li>
+ * <li>{@link ClientProperties#PROXY_USERNAME}</li>
+ * <li>{@link ClientProperties#PROXY_PASSWORD}</li>
  * <li>{@link ClientProperties#REQUEST_ENTITY_PROCESSING} - default value is {@link RequestEntityProcessing#CHUNKED}</li>
  * <li>{@link ApacheClientProperties#PREEMPTIVE_BASIC_AUTHENTICATION}</li>
  * <li>{@link ApacheClientProperties#SSL_CONFIG}</li>
@@ -183,9 +183,9 @@ import com.google.common.util.concurrent.MoreExecutors;
  * @see ApacheClientProperties#CONNECTION_MANAGER
  */
 @SuppressWarnings("deprecation")
-public class ApacheConnector implements Connector {
+class ApacheConnector implements Connector {
 
-    private final static Logger LOGGER = Logger.getLogger(ApacheConnector.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ApacheConnector.class.getName());
 
     private static final VersionInfo vi;
     private static final String release;
@@ -205,12 +205,11 @@ public class ApacheConnector implements Connector {
      *
      * @param config client configuration.
      */
-    ApacheConnector(Configuration config) {
-        Object httpParams = null;
+    ApacheConnector(final Configuration config) {
         Object reqConfig = null;
 
         if (config != null) {
-            Object connectionManager = config.getProperties().get(ApacheClientProperties.CONNECTION_MANAGER);
+            final Object connectionManager = config.getProperties().get(ApacheClientProperties.CONNECTION_MANAGER);
 
             if (connectionManager != null) {
                 if (!(connectionManager instanceof HttpClientConnectionManager)) {
@@ -225,21 +224,7 @@ public class ApacheConnector implements Connector {
             }
 
             reqConfig = config.getProperties().get(ApacheClientProperties.REQUEST_CONFIG);
-            if (reqConfig == null) {
-                httpParams = config.getProperties().get(ApacheClientProperties.HTTP_PARAMS);
-                if (httpParams != null) {
-                    if (!(httpParams instanceof HttpParams)) {
-                        LOGGER.log(
-                                Level.WARNING,
-                                LocalizationMessages.IGNORING_VALUE_OF_PROPERTY(
-                                        ApacheClientProperties.HTTP_PARAMS,
-                                        httpParams.getClass().getName(),
-                                        HttpParams.class.getName())
-                        );
-                        httpParams = null;
-                    }
-                }
-            } else {
+            if (reqConfig != null) {
                 if (!(reqConfig instanceof RequestConfig)) {
                     LOGGER.log(
                             Level.WARNING,
@@ -259,44 +244,34 @@ public class ApacheConnector implements Connector {
         clientBuilder.setConnectionManager(getConnectionManager(config, sslContext));
         clientBuilder.setSslcontext(sslContext);
 
-        RequestConfig.Builder requestConfigBuilder = RequestConfig.custom();
+        final RequestConfig.Builder requestConfigBuilder = RequestConfig.custom();
 
         int connectTimeout = 0;
         int socketTimeout = 0;
         boolean ignoreCookies = false;
         if (config != null) {
-            connectTimeout = PropertiesHelper.getValue(config.getProperties(), ClientProperties.CONNECT_TIMEOUT, 0);
-            socketTimeout = PropertiesHelper.getValue(config.getProperties(), ClientProperties.READ_TIMEOUT, 0);
+            connectTimeout = ClientProperties.getValue(config.getProperties(), ClientProperties.CONNECT_TIMEOUT, 0);
+            socketTimeout = ClientProperties.getValue(config.getProperties(), ClientProperties.READ_TIMEOUT, 0);
             ignoreCookies = PropertiesHelper.isProperty(config.getProperties(), ApacheClientProperties.DISABLE_COOKIES);
 
-            Object credentialsProvider = config.getProperty(ApacheClientProperties.CREDENTIALS_PROVIDER);
+            final Object credentialsProvider = config.getProperty(ApacheClientProperties.CREDENTIALS_PROVIDER);
             if (credentialsProvider != null && (credentialsProvider instanceof CredentialsProvider)) {
                 clientBuilder.setDefaultCredentialsProvider((CredentialsProvider) credentialsProvider);
             }
 
-
-            Object proxyUri;
+            final Object proxyUri;
             proxyUri = config.getProperty(ClientProperties.PROXY_URI);
-            if (proxyUri == null) {
-                proxyUri = config.getProperty(ApacheClientProperties.PROXY_URI);
-            }
             if (proxyUri != null) {
                 final URI u = getProxyUri(proxyUri);
                 final HttpHost proxy = new HttpHost(u.getHost(), u.getPort(), u.getScheme());
-                String userName;
-                userName = PropertiesHelper.getValue(config.getProperties(), ClientProperties.PROXY_USERNAME, String.class);
-                if (userName == null) {
-                    userName = PropertiesHelper.getValue(config.getProperties(), ApacheClientProperties.PROXY_USERNAME, String.class);
-                }
+                final String userName;
+                userName = ClientProperties.getValue(config.getProperties(), ClientProperties.PROXY_USERNAME, String.class);
                 if (userName != null) {
-                    String password;
-                    password = PropertiesHelper.getValue(config.getProperties(), ClientProperties.PROXY_PASSWORD, String.class);
-                    if (password == null) {
-                        password = PropertiesHelper.getValue(config.getProperties(), ApacheClientProperties.PROXY_PASSWORD, String.class);
-                    }
+                    final String password;
+                    password = ClientProperties.getValue(config.getProperties(), ClientProperties.PROXY_PASSWORD, String.class);
 
                     if (password != null) {
-                        CredentialsProvider credsProvider = new BasicCredentialsProvider();
+                        final CredentialsProvider credsProvider = new BasicCredentialsProvider();
                         credsProvider.setCredentials(
                                 new AuthScope(u.getHost(), u.getPort()),
                                 new UsernamePasswordCredentials(userName, password)
@@ -307,15 +282,16 @@ public class ApacheConnector implements Connector {
                 clientBuilder.setProxy(proxy);
             }
 
-            Boolean preemptiveBasicAuthProperty = (Boolean) config.getProperties()
+            final Boolean preemptiveBasicAuthProperty = (Boolean) config.getProperties()
                     .get(ApacheClientProperties.PREEMPTIVE_BASIC_AUTHENTICATION);
             this.preemptiveBasicAuth = (preemptiveBasicAuthProperty != null) ? preemptiveBasicAuthProperty : false;
         } else {
             this.preemptiveBasicAuth = false;
         }
 
-        if (httpParams != null) {
-            RequestConfig.Builder reqConfigBuilder = RequestConfig.copy(HttpClientParamConfig.getRequestConfig((HttpParams) httpParams));
+
+        if (reqConfig != null) {
+            final RequestConfig.Builder reqConfigBuilder = RequestConfig.copy((RequestConfig) reqConfig);
             if (connectTimeout > 0) {
                 reqConfigBuilder.setConnectTimeout(connectTimeout);
             }
@@ -327,27 +303,14 @@ public class ApacheConnector implements Connector {
             }
             requestConfig = reqConfigBuilder.build();
         } else {
-            if (reqConfig != null) {
-                RequestConfig.Builder reqConfigBuilder = RequestConfig.copy((RequestConfig) reqConfig);
-                if (connectTimeout > 0) {
-                    reqConfigBuilder.setConnectTimeout(connectTimeout);
-                }
-                if (socketTimeout > 0) {
-                    reqConfigBuilder.setSocketTimeout(socketTimeout);
-                }
-                if (ignoreCookies) {
-                    reqConfigBuilder.setCookieSpec(CookieSpecs.IGNORE_COOKIES);
-                }
-                requestConfig = reqConfigBuilder.build();
-            } else {
-                requestConfigBuilder.setConnectTimeout(connectTimeout);
-                requestConfigBuilder.setSocketTimeout(socketTimeout);
-                if (ignoreCookies) {
-                    requestConfigBuilder.setCookieSpec(CookieSpecs.IGNORE_COOKIES);
-                }
-                requestConfig = requestConfigBuilder.build();
+            requestConfigBuilder.setConnectTimeout(connectTimeout);
+            requestConfigBuilder.setSocketTimeout(socketTimeout);
+            if (ignoreCookies) {
+                requestConfigBuilder.setCookieSpec(CookieSpecs.IGNORE_COOKIES);
             }
+            requestConfig = requestConfigBuilder.build();
         }
+
         if (requestConfig.getCookieSpec() == null || !requestConfig.getCookieSpec().equals(CookieSpecs.IGNORE_COOKIES)) {
             this.cookieStore = new BasicCookieStore();
             clientBuilder.setDefaultCookieStore(cookieStore);
@@ -359,7 +322,11 @@ public class ApacheConnector implements Connector {
     }
 
     private SSLContext getSslContext(final Configuration config) {
-        final SslConfigurator sslConfigurator = PropertiesHelper.getValue(
+        if (config == null) {
+            return null;
+        }
+
+        final SslConfigurator sslConfigurator = ApacheClientProperties.getValue(
                 config.getProperties(),
                 ApacheClientProperties.SSL_CONFIG,
                 SslConfigurator.class);
@@ -395,9 +362,9 @@ public class ApacheConnector implements Connector {
 
     private HttpClientConnectionManager createConnectionManager(
             final Configuration config,
-            SSLContext sslContext,
+            final SSLContext sslContext,
             X509HostnameVerifier hostnameVerifier,
-            boolean useSystemProperties) {
+            final boolean useSystemProperties) {
 
         final String[] supportedProtocols = useSystemProperties ? split(
                 System.getProperty("https.protocols")) : null;
@@ -408,7 +375,7 @@ public class ApacheConnector implements Connector {
             hostnameVerifier = SSLConnectionSocketFactory.BROWSER_COMPATIBLE_HOSTNAME_VERIFIER;
         }
 
-        LayeredConnectionSocketFactory sslSocketFactory;
+        final LayeredConnectionSocketFactory sslSocketFactory;
         if (sslContext != null) {
             sslSocketFactory = new SSLConnectionSocketFactory(
                     sslContext, supportedProtocols, supportedCipherSuites, hostnameVerifier);
@@ -429,7 +396,7 @@ public class ApacheConnector implements Connector {
                 .register("https", sslSocketFactory)
                 .build();
 
-        final Integer chunkSize = PropertiesHelper.getValue(config.getProperties(),
+        final Integer chunkSize = ClientProperties.getValue(config.getProperties(),
                 ClientProperties.CHUNKED_ENCODING_SIZE, 4096, Integer.class);
 
         final PoolingHttpClientConnectionManager connectionManager =
@@ -481,39 +448,42 @@ public class ApacheConnector implements Connector {
         } else if (proxy instanceof String) {
             return URI.create((String) proxy);
         } else {
-            throw new ProcessingException(LocalizationMessages.WRONG_PROXY_URI_TYPE(ApacheClientProperties.PROXY_URI));
+            throw new ProcessingException(LocalizationMessages.WRONG_PROXY_URI_TYPE(ClientProperties.PROXY_URI));
         }
     }
 
     @Override
     public ClientResponse apply(final ClientRequest clientRequest) throws ProcessingException {
         final HttpUriRequest request = getUriHttpRequest(clientRequest);
-
-        writeOutBoundHeaders(clientRequest.getHeaders(), request);
+        final Map<String, String> clientHeadersSnapshot = writeOutBoundHeaders(clientRequest.getHeaders(), request);
 
         try {
             final CloseableHttpResponse response;
             final HttpClientContext context = HttpClientContext.create();
             if (preemptiveBasicAuth) {
-                AuthCache authCache = new BasicAuthCache();
-                BasicScheme basicScheme = new BasicScheme();
+                final AuthCache authCache = new BasicAuthCache();
+                final BasicScheme basicScheme = new BasicScheme();
                 authCache.put(getHost(request), basicScheme);
                 context.setAuthCache(authCache);
-                response = client.execute(getHost(request), request, context);
-            } else {
-                response = client.execute(getHost(request), request, context);
             }
+            response = client.execute(getHost(request), request, context);
+            HeaderUtils.checkHeaderChanges(clientHeadersSnapshot, clientRequest.getHeaders(),
+                    this.getClass().getName());
 
             final Response.StatusType status = response.getStatusLine().getReasonPhrase() == null ?
                     Statuses.from(response.getStatusLine().getStatusCode()) :
                     Statuses.from(response.getStatusLine().getStatusCode(), response.getStatusLine().getReasonPhrase());
 
             final ClientResponse responseContext = new ClientResponse(status, clientRequest);
+            final List<URI> redirectLocations = context.getRedirectLocations();
+            if (redirectLocations != null && !redirectLocations.isEmpty()) {
+                responseContext.setResolvedRequestUri(redirectLocations.get(redirectLocations.size() - 1));
+            }
 
             final Header[] respHeaders = response.getAllHeaders();
-            for (Header header : respHeaders) {
+            final MultivaluedMap<String, String> headers = responseContext.getHeaders();
+            for (final Header header : respHeaders) {
                 final String headerName = header.getName();
-                final MultivaluedMap<String, String> headers = responseContext.getHeaders();
                 List<String> list = headers.get(headerName);
                 if (list == null) {
                     list = new ArrayList<String>();
@@ -522,14 +492,28 @@ public class ApacheConnector implements Connector {
                 headers.put(headerName, list);
             }
 
+            final HttpEntity entity = response.getEntity();
+
+            if (entity != null) {
+                if (headers.get(HttpHeaders.CONTENT_LENGTH) == null) {
+                    headers.add(HttpHeaders.CONTENT_LENGTH, String.valueOf(entity.getContentLength()));
+                }
+
+                final Header contentEncoding = entity.getContentEncoding();
+                if (headers.get(HttpHeaders.CONTENT_ENCODING) == null && contentEncoding != null) {
+                    headers.add(HttpHeaders.CONTENT_ENCODING, contentEncoding.getValue());
+                }
+            }
+
+
             try {
                 responseContext.setEntityStream(new HttpClientResponseInputStream(response));
-            } catch (IOException e) {
+            } catch (final IOException e) {
                 LOGGER.log(Level.SEVERE, null, e);
             }
 
             return responseContext;
-        } catch (Exception e) {
+        } catch (final Exception e) {
             throw new ProcessingException(e);
         }
     }
@@ -541,9 +525,9 @@ public class ApacheConnector implements Connector {
             public void run() {
                 try {
                     callback.response(apply(request));
-                } catch (ProcessingException ex) {
+                } catch (final ProcessingException ex) {
                     callback.failure(ex);
-                } catch (Throwable t) {
+                } catch (final Throwable t) {
                     callback.failure(t);
                 }
             }
@@ -559,7 +543,7 @@ public class ApacheConnector implements Connector {
     public void close() {
         try {
             client.close();
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new ProcessingException(LocalizationMessages.FAILED_TO_STOP_CLIENT(), e);
         }
     }
@@ -569,8 +553,8 @@ public class ApacheConnector implements Connector {
     }
 
     private HttpUriRequest getUriHttpRequest(final ClientRequest clientRequest) {
-        final Boolean redirectsEnabled = clientRequest.resolveProperty(ClientProperties.FOLLOW_REDIRECTS,
-                requestConfig.isRedirectsEnabled());
+        final Boolean redirectsEnabled =
+                clientRequest.resolveProperty(ClientProperties.FOLLOW_REDIRECTS, requestConfig.isRedirectsEnabled());
         final RequestConfig config = RequestConfig.copy(requestConfig).setRedirectsEnabled(redirectsEnabled).build();
 
         final Boolean bufferingEnabled = clientRequest.resolveProperty(ClientProperties.REQUEST_ENTITY_PROCESSING,
@@ -593,7 +577,7 @@ public class ApacheConnector implements Connector {
             return null;
         }
 
-        AbstractHttpEntity httpEntity = new AbstractHttpEntity() {
+        final AbstractHttpEntity httpEntity = new AbstractHttpEntity() {
             @Override
             public boolean isRepeatable() {
                 return false;
@@ -607,7 +591,7 @@ public class ApacheConnector implements Connector {
             @Override
             public InputStream getContent() throws IOException, IllegalStateException {
                 if (bufferingEnabled) {
-                    ByteArrayOutputStream buffer = new ByteArrayOutputStream(512);
+                    final ByteArrayOutputStream buffer = new ByteArrayOutputStream(512);
                     writeTo(buffer);
                     return new ByteArrayInputStream(buffer.toByteArray());
                 } else {
@@ -619,7 +603,7 @@ public class ApacheConnector implements Connector {
             public void writeTo(final OutputStream outputStream) throws IOException {
                 clientRequest.setStreamProvider(new OutboundMessageContext.StreamProvider() {
                     @Override
-                    public OutputStream getOutputStream(int contentLength) throws IOException {
+                    public OutputStream getOutputStream(final int contentLength) throws IOException {
                         return outputStream;
                     }
                 });
@@ -635,7 +619,7 @@ public class ApacheConnector implements Connector {
         if (bufferingEnabled) {
             try {
                 return new BufferedHttpEntity(httpEntity);
-            } catch (IOException e) {
+            } catch (final IOException e) {
                 throw new ProcessingException(LocalizationMessages.ERROR_BUFFERING_ENTITY(), e);
             }
         } else {
@@ -643,22 +627,13 @@ public class ApacheConnector implements Connector {
         }
     }
 
-    private void writeOutBoundHeaders(final MultivaluedMap<String, Object> headers, final HttpUriRequest request) {
-        for (Map.Entry<String, List<Object>> e : headers.entrySet()) {
-            List<Object> vs = e.getValue();
-            if (vs.size() == 1) {
-                request.addHeader(e.getKey(), vs.get(0).toString());
-            } else {
-                StringBuilder b = new StringBuilder();
-                for (Object v : e.getValue()) {
-                    if (b.length() > 0) {
-                        b.append(',');
-                    }
-                    b.append(v);
-                }
-                request.addHeader(e.getKey(), b.toString());
-            }
+    private static Map<String, String> writeOutBoundHeaders(final MultivaluedMap<String, Object> headers, final HttpUriRequest request) {
+        final Map<String, String> stringHeaders = HeaderUtils.asStringHeadersSingleValue(headers);
+
+        for (final Map.Entry<String, String> e : stringHeaders.entrySet()) {
+            request.addHeader(e.getKey(), e.getValue());
         }
+        return stringHeaders;
     }
 
     private static final class HttpClientResponseInputStream extends FilterInputStream {

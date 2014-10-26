@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2010-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -83,6 +83,7 @@ import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleException;
 import org.w3c.dom.Document;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.ops4j.pax.exam.CoreOptions.junitBundles;
@@ -93,10 +94,7 @@ import static org.ops4j.pax.exam.CoreOptions.systemPackage;
 import static org.ops4j.pax.exam.CoreOptions.systemProperty;
 import static org.ops4j.pax.tinybundles.core.TinyBundles.bundle;
 
-import static junit.framework.Assert.assertEquals;
-
 /**
- *
  * @author Naresh
  * @author Miroslav Fuksa (miroslav.fuksa at oracle.com)
  * @author Jakub Podlesak (jakub.podlesak at oracle.com)
@@ -124,9 +122,6 @@ public class ExtendedWadlWebappOsgiTest {
                 // javax.annotation must go first!
                 mavenBundle().groupId("javax.annotation").artifactId("javax.annotation-api").versionAsInProject(),
 
-                // Google Guava
-                mavenBundle().groupId("com.google.guava").artifactId("guava").versionAsInProject(),
-
                 junitBundles(),
 
                 mavenBundle("org.ops4j.pax.url", "pax-url-mvn"),
@@ -137,8 +132,9 @@ public class ExtendedWadlWebappOsgiTest {
                 mavenBundle().groupId("org.glassfish.hk2").artifactId("hk2-locator").versionAsInProject(),
                 mavenBundle().groupId("org.glassfish.hk2").artifactId("hk2-utils").versionAsInProject(),
                 mavenBundle().groupId("org.glassfish.hk2.external").artifactId("javax.inject").versionAsInProject(),
-                mavenBundle().groupId("org.glassfish.hk2.external").artifactId("asm-all-repackaged").versionAsInProject(),
-                mavenBundle().groupId("org.glassfish.hk2.external").artifactId("cglib").versionAsInProject(),
+                mavenBundle().groupId("org.glassfish.hk2.external").artifactId("aopalliance-repackaged").versionAsInProject(),
+                mavenBundle().groupId("org.ow2.asm").artifactId("asm-debug-all").versionAsInProject(),
+                mavenBundle().groupId("org.javassist").artifactId("javassist").versionAsInProject(),
 
                 // JAX-RS API
                 mavenBundle().groupId("javax.ws.rs").artifactId("javax.ws.rs-api").versionAsInProject(),
@@ -147,6 +143,8 @@ public class ExtendedWadlWebappOsgiTest {
                 mavenBundle().groupId("org.glassfish.jersey.core").artifactId("jersey-common").versionAsInProject(),
                 mavenBundle().groupId("org.glassfish.jersey.core").artifactId("jersey-server").versionAsInProject(),
                 mavenBundle().groupId("org.glassfish.jersey.core").artifactId("jersey-client").versionAsInProject(),
+                // Guava
+                mavenBundle().groupId("org.glassfish.jersey.bundles.repackaged").artifactId("jersey-guava").versionAsInProject(),
 
                 // jettison
                 mavenBundle().groupId("org.codehaus.jettison").artifactId("jettison").versionAsInProject(),
@@ -185,7 +183,7 @@ public class ExtendedWadlWebappOsgiTest {
                                 .set("Export-Package", MyApplication.class.getPackage().getName() + "," + SampleWadlGeneratorConfig.class.getPackage().getName())
                                 .set("DynamicImport-Package", "*")
                                 .set("Bundle-SymbolicName", "webapp").build())
-            )
+        )
         );
         final String localRepository = AccessController.doPrivileged(PropertiesHelper.getSystemProperty("localRepository"));
         if (localRepository != null) {
@@ -206,6 +204,7 @@ public class ExtendedWadlWebappOsgiTest {
     /**
      * Test checks that the WADL generated using the WadlGenerator api doesn't
      * contain the expected text.
+     *
      * @throws java.lang.Exception
      */
     @Test

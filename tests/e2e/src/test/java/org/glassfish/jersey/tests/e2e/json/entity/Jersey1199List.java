@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -45,9 +45,6 @@ import java.util.Formatter;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
-import org.codehaus.jackson.annotate.JsonSubTypes;
-import org.codehaus.jackson.annotate.JsonTypeInfo;
-
 /**
  * @author Michal Gajdos (michal.gajdos at oracle.com)
  */
@@ -56,8 +53,8 @@ import org.codehaus.jackson.annotate.JsonTypeInfo;
 public class Jersey1199List {
 
     public static Object createTestInstance() {
-        ColorHolder obj1 = new ColorHolder(EnumSet.of(Color.RED, Color.BLUE));
-        ColorHolder obj2 = new ColorHolder(EnumSet.of(Color.GREEN));
+        final ColorHolder obj1 = new ColorHolder(EnumSet.of(Color.RED, Color.BLUE));
+        final ColorHolder obj2 = new ColorHolder(EnumSet.of(Color.GREEN));
 
         return new Jersey1199List(new Object[]{obj1, obj2});
     }
@@ -69,17 +66,25 @@ public class Jersey1199List {
     public Jersey1199List() {
     }
 
-    public Jersey1199List(Object[] objects) {
+    public Jersey1199List(final Object[] objects) {
         this.objects = objects;
         this.offset = 0;
         this.total = objects.length;
     }
 
-    @JsonTypeInfo(
-            use = JsonTypeInfo.Id.NAME,
-            include = JsonTypeInfo.As.PROPERTY)
-    @JsonSubTypes({
-            @JsonSubTypes.Type(value = ColorHolder.class)
+    // Jackson 1
+    @org.codehaus.jackson.annotate.JsonTypeInfo(
+            use = org.codehaus.jackson.annotate.JsonTypeInfo.Id.NAME,
+            include = org.codehaus.jackson.annotate.JsonTypeInfo.As.PROPERTY)
+    @org.codehaus.jackson.annotate.JsonSubTypes({
+            @org.codehaus.jackson.annotate.JsonSubTypes.Type(value = ColorHolder.class)
+    })
+    // Jackson 2
+    @com.fasterxml.jackson.annotation.JsonTypeInfo(
+            use = com.fasterxml.jackson.annotation.JsonTypeInfo.Id.NAME,
+            include = com.fasterxml.jackson.annotation.JsonTypeInfo.As.PROPERTY)
+    @com.fasterxml.jackson.annotation.JsonSubTypes({
+            @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = ColorHolder.class)
     })
     public Object[] getObjects() {
         return objects;

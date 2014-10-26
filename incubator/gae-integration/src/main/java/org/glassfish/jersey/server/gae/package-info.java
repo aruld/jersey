@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -40,6 +40,8 @@
 
 /**
  * Public API of Google App Engine integration support.
- * Register {@link GaeFeature} in your {@link org.glassfish.jersey.server.ResourceConfig} subclass to enable the support.
+ *
+ * Register {@link org.glassfish.jersey.server.gae.GaeFeature} in your {@link org.glassfish.jersey.server.ResourceConfig}
+ * subclass to enable the support.
  */
 package org.glassfish.jersey.server.gae;

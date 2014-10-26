@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -44,11 +44,15 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedMap;
 
 import javax.inject.Inject;
 import javax.servlet.ServletContext;
@@ -62,8 +66,6 @@ import org.glassfish.hk2.api.ServiceLocator;
 
 import org.jvnet.hk2.annotations.Optional;
 
-import com.google.common.collect.Lists;
-
 import freemarker.cache.ClassTemplateLoader;
 import freemarker.cache.FileTemplateLoader;
 import freemarker.cache.MultiTemplateLoader;
@@ -72,6 +74,7 @@ import freemarker.cache.WebappTemplateLoader;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
+import jersey.repackaged.com.google.common.collect.Lists;
 
 /**
  * {@link org.glassfish.jersey.server.mvc.spi.TemplateProcessor Template processor} providing support for Freemarker templates.
@@ -117,6 +120,7 @@ final class FreemarkerViewProcessor extends AbstractTemplateProcessor<Template> 
                 return configuration;
             }
         });
+
     }
 
     @Override
@@ -126,7 +130,7 @@ final class FreemarkerViewProcessor extends AbstractTemplateProcessor<Template> 
 
     @Override
     public void writeTo(final Template template, final Viewable viewable, final MediaType mediaType,
-                        final OutputStream out) throws IOException {
+                        final MultivaluedMap<String, Object> httpHeaders, final OutputStream out) throws IOException {
         try {
             Object model = viewable.getModel();
             if (!(model instanceof Map)) {
@@ -134,7 +138,9 @@ final class FreemarkerViewProcessor extends AbstractTemplateProcessor<Template> 
                     put("model", viewable.getModel());
                 }};
             }
-            template.process(model, new OutputStreamWriter(out));
+            Charset encoding = setContentType(mediaType, httpHeaders);
+
+            template.process(model, new OutputStreamWriter(out, encoding));
         } catch (TemplateException te) {
             throw new ContainerException(te);
         }

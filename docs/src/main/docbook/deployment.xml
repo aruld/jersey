@@ -3,7 +3,7 @@
 
     DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 
-    Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+    Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
 
     The contents of this file are subject to the terms of either the GNU
     General Public License Version 2 only ("GPL") or the Common Development
@@ -40,7 +40,10 @@
     holder.
 
 -->
-<!DOCTYPE chapter [<!ENTITY % ents SYSTEM "jersey.ent" > %ents; ]>
+<!DOCTYPE chapter [<!ENTITY % ents SYSTEM "jersey.ent" > %ents;
+    <!ENTITY jersey.github.osgi.webapp.example.link "<link xlink:href='&jersey.github.examples.uri;/osgi-helloworld-webapp'>WAB Example</link>">
+    <!ENTITY jersey.github.osgi.httpservice.example.link "<link xlink:href='&jersey.github.examples.uri;/osgi-http-service'>HTTP Service example</link>">
+]>
 <chapter xmlns="http://docbook.org/ns/docbook"
          version="5.0"
          xml:lang="en"
@@ -154,6 +157,9 @@
                     <para>&jersey.server.UriConnegFilter; - a URI-based content negotiation filter.</para>
                 </listitem>
             </itemizedlist>
+
+            Almost all Jersey auto-discovery implementations have <code>AutoDiscoverable.DEFAULT_PRIORITY</code>
+            <literal>@Priority</literal> set.
         </para>
 
         <note>
@@ -222,10 +228,8 @@
                         it means if you disable service loading the AutoDiscoverable feature is automatically disabled too</para>
                 </listitem>
                 <listitem>
-                    <para><literal>MessageBodyReader</literal> (server, client)</para>
-                </listitem>
-                <listitem>
-                    <para><literal>MessageBodyWriter</literal> (server, client)</para>
+                    <para><literal>ForcedAutoDiscoverable</literal> (server, client) -
+                        Jersey always looks for these auto discoverable features even if the service loading is disabled</para>
                 </listitem>
                 <listitem>
                     <para><literal>HeaderDelegateProvider</literal> (server, client)</para>
@@ -238,6 +242,19 @@
                 </listitem>
                 <listitem>
                     <para><literal>AsyncContextDelegateProvider</literal> (server/Servlet)</para>
+                </listitem>
+            </itemizedlist>
+
+            <itemizedlist>
+                <title>List of additional SPIs recognized by Jersey in case the <literal>metainf-services</literal> module is on the classpath</title>
+                <listitem>
+                    <para><literal>MessageBodyReader</literal> (server, client)</para>
+                </listitem>
+                <listitem>
+                    <para><literal>MessageBodyWriter</literal> (server, client)</para>
+                </listitem>
+                <listitem>
+                    <para><literal>ExceptionMapper</literal> (server, client)</para>
                 </listitem>
             </itemizedlist>
 
@@ -309,7 +326,7 @@ resourceConfig.property(ServerProperties.METAINF_SERVICES_LOOKUP_DISABLE, true);
                     integration with this Java SE HTTP server through the <literal>jersey-container-jdk-http</literal>
                     container extension module.
                     Instead of creating the <literal>&jdk6.HttpServer;</literal> instance directly, use the
-                    <literal>createHttpServer()</literal> method of <literal>&jersey.grizzly.JdkHttpServerFactory;</literal>,
+                    <literal>createHttpServer()</literal> method of <literal>&jersey.jdkhttp.JdkHttpServerFactory;</literal>,
                     which creates the <literal>HttpServer</literal> instance configured as a Jersey container and
                     initialized with the supplied &lit.jaxrs.core.Application; subclass.
                 </para>
@@ -342,11 +359,21 @@ HttpServer server = JdkHttpServerFactory.createHttpServer(baseUri, config);</pro
                     a JAX-RS or Jersey application is one of the most lightweight and easy ways how to expose a functional
                     RESTful services application.
                 </para>
+                <para>
+                    Grizzly HTTP container supports injection of Grizzly-specific
+                    <literal>org.glassfish.grizzly.http.server.Request</literal> and
+                    <literal>org.glassfish.grizzly.http.server.Response</literal> instances into JAX-RS and Jersey
+                    application resources and providers. However, since Grizzly <literal>Request</literal> is not proxiable,
+                    the injection of Grizzly <literal>Request</literal> into singleton (by default) JAX-RS / Jersey providers
+                    is only possible via <literal>javax.inject.Provider</literal> instance. (Grizzly <literal>Response</literal>
+                    does not suffer the same restriction.)
+                </para>
+
                 <example>
                     <title>Using Jersey with Grizzly HTTP Server</title>
                     <programlisting language="java" linenumbering="numbered">URI baseUri = UriBuilder.fromUri("http://localhost/").port(9998).build();
     ResourceConfig config = new ResourceConfig(MyResource.class);
-    HttpServer server = GrizzlyHttpServerFactory.createHttpServer(uri, appHandler);</programlisting>
+    HttpServer server = GrizzlyHttpServerFactory.createHttpServer(uri, config);</programlisting>
 
                     The container extension module dependency to be added is:
 
@@ -367,10 +394,18 @@ HttpServer server = JdkHttpServerFactory.createHttpServer(baseUri, config);</pro
             <section xml:id="deployment.http.simple">
                 <title>Simple server</title>
                 <para>
-                    &simple.link; is a framework which allows developers to create a HTTP server instance and embed it within
+                    <link xlink:href='http://www.simpleframework.org/'>Simple</link> is a framework which allows developers
+                    to create a HTTP server instance and embed it within
                     an application. Again, creating the server instance is achieved by calling a factory method from the
                     <literal>jersey-container-simple-http</literal> container extension module.
                 </para>
+                <para>
+                    Simple framework HTTP container supports injection of Simple framework-specific
+                    <literal>org.simpleframework.http.Request</literal> and
+                    <literal>org.simpleframework.http.Response</literal> instances into JAX-RS and Jersey
+                    application resources and providers.
+                </para>
+
                 <example>
                     <title>Using Jersey with the Simple framework</title>
                     <programlisting language="java" linenumbering="numbered">URI baseUri = UriBuilder.fromUri("http://localhost/").port(9998).build();
@@ -385,6 +420,12 @@ HttpServer server = JdkHttpServerFactory.createHttpServer(baseUri, config);</pro
     &lt;version&gt;&version;&lt;/version&gt;
 &lt;/dependency&gt;</programlisting>
                 </example>
+                <note>
+                    <para>
+                        Simple framework HTTP container does not support deployment on context paths other than
+                        root path ("<literal>/</literal>"). Non-root context path is ignored during deployment.
+                    </para>
+                </note>
             </section>
 
             <section xml:id="deployment.http.jetty">
@@ -395,6 +436,15 @@ HttpServer server = JdkHttpServerFactory.createHttpServer(baseUri, config);</pro
                     to Jetty when using a Servlet-based deployment model, which is extensively described later in our
                     <xref linkend="deployment.servlet"/> section. We will here only focus on describing how to use
                     Jetty's HTTP server.
+                </para>
+                <para>
+                    Jetty HTTP container supports injection of Jetty-specific
+                    <literal>org.eclipse.jetty.server.Request</literal> and
+                    <literal>org.eclipse.jetty.server.Response</literal> instances into JAX-RS and Jersey
+                    application resources and providers. However, since Jetty HTTP <literal>Request</literal> is not proxiable,
+                    the injection of Jetty <literal>Request</literal> into singleton (by default) JAX-RS / Jersey providers
+                    is only possible via <literal>javax.inject.Provider</literal> instance. (Jetty <literal>Response</literal>
+                    does not suffer the same restriction.)
                 </para>
 
                 <example>
@@ -412,6 +462,12 @@ Server server = JettyHttpContainerFactory.createServer(baseUri, config);</progra
     &lt;version&gt;&version;&lt;/version&gt;
 &lt;/dependency&gt;</programlisting>
                 </example>
+                <note>
+                    <para>
+                        Jetty HTTP container does not support deployment on context paths other than
+                        root path ("<literal>/</literal>"). Non-root context path is ignored during deployment.
+                    </para>
+                </note>
             </section>
         </section>
     </section>
@@ -477,8 +533,8 @@ Server server = JettyHttpContainerFactory.createServer(baseUri, config);</progra
                     <title>Hooking up Jersey as a Servlet Filter</title>
                     <programlisting language="xml" linenumbering="numbered">&lt;web-app&gt;
     &lt;filter&gt;
-        &lt;filter-name&gt;MyApplication&lt;/servlet-name&gt;
-        &lt;filter-class&gt;org.glassfish.jersey.servlet.ServletContainer&lt;/servlet-class&gt;
+        &lt;filter-name&gt;MyApplication&lt;/filter-name&gt;
+        &lt;filter-class&gt;org.glassfish.jersey.servlet.ServletContainer&lt;/filter-class&gt;
         &lt;init-param&gt;
             ...
         &lt;/init-param&gt;
@@ -864,7 +920,7 @@ public class MyApplication extends ResourceConfig {
                 As with any other Servlet application, JAX-RS application classes are packaged in
                 <literal>WEB-INF/classes</literal> or <literal>WEB-INF/lib</literal> and required application libraries are
                 located in <literal>WEB-INF/lib</literal>.
-                For more details, please refer to the Servlet Specification (&jsr315.path;).
+                For more details, please refer to the Servlet Specification (&jsr315.link;).
             </para>
 
             <para>
@@ -914,7 +970,7 @@ public class MyApplication extends ResourceConfig {
             </para>
 
             <para>
-                In the code bellow, you can find an example of a bean, that uses a managed-bean interceptor defined as a JAX-RS
+                In the code below, you can find an example of a bean, that uses a managed-bean interceptor defined as a JAX-RS
                 bean. The bean is used to intercept calls to the resource method <literal>getIt()</literal>:
 
                 <programlisting language="java" linenumbering="numbered">@ManagedBean
@@ -933,7 +989,7 @@ public class ManagedBeanResource {
     @Produces("text/plain")
     @Interceptors(MyInterceptor.class)
     public String getIt() {
-        return "Hi managedbean!";
+        return "Hi managed bean!";
     }
 }</programlisting>
             </para>
@@ -1010,13 +1066,26 @@ public class StatelessEjbResource implements LocalEjb {
             <title>Java EE Servers</title>
 
             <section xml:id="deployment.appservers.glassfish">
-                <title>Glassfish Application Server</title>
+                <title>GlassFish Application Server</title>
 
                 <para>
                     As explained in <link linkend="servlet-app-glassfish">2.3.1</link> , you don't need to add any specific
-                    dependencies on Glassfish, Jersey is already packaged within Glassfish. You only need to add the
-                    <literal>provided</literal>-scoped dependencies to you project to eb able to compile it. At runtime,
+                    dependencies on GlassFish, Jersey is already packaged within GlassFish. You only need to add the
+                    <literal>provided</literal>-scoped dependencies to you project to be able to compile it. At runtime,
                     GlassFish will make sure that your application has access to the Jersey libraries.
+                </para>
+
+                <para>
+                  Started with version 2.7, Jersey allows injecting Jersey specific types into CDI enabled JAX-RS components
+                  using the <literal>@javax.inject.Inject</literal> annotation. This covers also custom HK2 bindings, that are configured
+                  as part of Jersey application. The feature specifically enables usage of Jersey monitoring statistics (provided that the statistic feature is turned on)
+                  in CDI environment, where injection is the only mean to get access to monitoring data.
+                </para>
+                <para>
+                  Since both CDI and HK2 use the same injection annotation, Jersey could get confused in certain
+                  cases, which could lead to nasty runtime issues. The get better control over what Jersey evaluates
+                  as HK2 injection, end-users could take advantage of newly introduced, &jersey.gf.cdi.spi.Hk2CustomBoundTypesProvider;, SPI.
+                  Please see the linked javadoc to get detailed information on how to use the SPI in your application.
                 </para>
             </section>
 
@@ -1024,8 +1093,19 @@ public class StatelessEjbResource implements LocalEjb {
                 <title>Oracle WebLogic Server</title>
 
                 <para>
-                    WebLogic currently supports JAX-RS 1.1 (&jsr311.path;) out of the box with Jersey 1.x. To use more recent
-                    version with WebLogic, please follow this &weblogic.guide;.
+                    WebLogic 12.1.2 and earlier supports only JAX-RS 1.1 (&jsr311.link;) out of the box with Jersey 1.x
+                    (WebLogic 12.1.2 ships with Jersey 1.13). To update the version of Jersey 1.x in these earlier WebLogic
+                    releases, please read the
+                    <link xlink:href='http://docs.oracle.com/middleware/1212/wls/RESTF/version-restful-service.htm'>
+                        Updating the Version of Jersey JAX-RS RI
+                    </link> chapter in the WebLogic RESTful Web Services Development Guide.
+                </para>
+                <para>
+                    In WebLogic 12.1.3, Jersey 1.18 is shipped as a default JAX-RS 1.1 provider. In this version of WebLogic,
+                    JAX-RS 2.0 (using Jersey 2.5.1) is supported as an optionally installable shared library. Please read through
+                    the <link xlink:href="http://docs.oracle.com/middleware/1213/wls/RESTF/use-jersey20-ri.htm#RESTF290">WebLogic
+                    12.1.3 RESTful Web Services Development Guide</link> for details how to enable JAX-RS 2.0 support on
+                    WebLogic 12.1.3.
                 </para>
             </section>
 
@@ -1049,8 +1129,8 @@ public class StatelessEjbResource implements LocalEjb {
         <para>
             OSGi support has been added to the Jersey version 1.2. Since then, you should be able to utilize standard OSGi
             means to run Jersey based web applications in OSGi runtime as described in the OSGi Service Platform Enterprise
-            Specification. Jersey is currently compatible with OSGi 4.2.0, the specification could be downloaded from
-            &osgi.path;.
+            Specification. Jersey is currently compatible with OSGi 4.2.0, the specification could be downloaded from the
+            <link xlink:href='http://www.osgi.org/Download/Release4V42'>OSGi 4.2.0 Download Site</link>.
         </para>
         <para>
             The two supported ways of running an OSGi web application are:
@@ -1068,13 +1148,14 @@ public class StatelessEjbResource implements LocalEjb {
             them with Jersey:
 
             <itemizedlist>
-                <listitem>&jersey.github.osgi.webapp;</listitem>
-                <listitem>&jersey.github.osgi.httpservice;</listitem>
+                <listitem>&jersey.github.osgi.webapp.example.link;</listitem>
+                <listitem>&jersey.github.osgi.httpservice.example.link;</listitem>
             </itemizedlist>
 
             Both examples are multi-module maven projects and both consist of an application OSGi bundle module and a test module.
-            The tests are based on &pax.path; framework. Both OSGi examples also include a readme file containing instructions
-            how to manually run the example applications using &felix.path; framework.
+            The tests are based on the <link xlink:href='http://ops4j1.jira.com/wiki/display/PAXEXAM3/Pax+Exam'>PAX Exam</link>
+            framework. Both OSGi examples also include a readme file containing instructions
+            how to manually run the example applications using &felix.link; framework.
         </para>
 
         <para>
@@ -1160,11 +1241,12 @@ Bundle-ClassPath: WEB-INF/classese</programlisting>
                 compliant with the OSGi Enterprise Specification mentioned above. The third manifest header
                 worth mentioning is the Bundle-ClassPath specifying where to find the application
                 Java classes within the bundle archive.
-                More about manifest headers in OSGi can be found in the &osgi.wiki.headers;
+                More about manifest headers in OSGi can be found in the
+                <link xlink:href='http://wiki.osgi.org/wiki/Category:Manifest_Header'>OSGi Wiki</link>.
             </para>
 
             <para>
-                For more detailed information on the example please see the &jersey.github.osgi.webapp; source code. This
+                For more detailed information on the example please see the &jersey.github.osgi.webapp.example.link; source code. This
                 example does not package into a single <literal>war</literal> file. Instead a <literal>war</literal> and a
                 set of additional <literal>jar</literal>s is produced during the build. See the next example to see how to deploy OSGi
                 based Jersey application to GlassFish.
@@ -1192,7 +1274,8 @@ Bundle-ClassPath: WEB-INF/classese</programlisting>
 examples$ cd osgi-http-service/bundle
 bundle$ mvn clean package</programlisting>
 
-                You can also get the binary readily compiled from maven &repo.osgi.httpservice.bundle;.
+                You can also get the binary readily compiled from
+                <link xlink:href='&maven.java.net.releases.link;org/glassfish/jersey/examples/osgi-http-service/bundle/&version;'>Java.net Maven Repository</link>.
             </para>
             <para>
                 2) Install into OSGi runtime:
@@ -1247,8 +1330,10 @@ gogo$</programlisting>
             </para>
 
             <para>
-                The example app should now be up and running. You can access it on &localhost.example.osgi.http;. Please
-                see &jersey.github.osgi.httpservice; source code for more details on the example.
+                The example app should now be up and running. You can access it on
+                <link xlink:href='http://localhost:8080/osgi/jersey-http-service/status'>
+                    http://localhost:8080/osgi/jersey-http-service/status
+                </link>. Please see &jersey.github.osgi.httpservice.example.link; source code for more details on the example.
             </para>
         </section>
     </section>

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -44,30 +44,36 @@ import java.util.Map;
 
 import org.glassfish.jersey.server.monitoring.ExceptionMapperStatistics;
 
-import com.google.common.collect.Maps;
+import jersey.repackaged.com.google.common.collect.Maps;
 
 /**
  * Exception mapper statistics.
  *
  * @author Miroslav Fuksa (miroslav.fuksa at oracle.com)
  */
-class ExceptionMapperStatisticsImpl implements ExceptionMapperStatistics {
+final class ExceptionMapperStatisticsImpl implements ExceptionMapperStatistics {
 
     /**
      * Builder of exception mapper statistics.
      */
     static class Builder {
+
         private Map<Class<?>, Long> exceptionMapperExecutionCount = Maps.newHashMap();
         private long successfulMappings;
         private long unsuccessfulMappings;
         private long totalMappings;
 
+        private ExceptionMapperStatisticsImpl cached;
+
         /**
          * Add mappings.
+         *
          * @param success True if mappings were successful.
          * @param count Number of mappings.
          */
-        void addMapping(boolean success, int count) {
+        void addMapping(final boolean success, final int count) {
+            cached = null;
+
             totalMappings++;
             if (success) {
                 successfulMappings += count;
@@ -78,15 +84,17 @@ class ExceptionMapperStatisticsImpl implements ExceptionMapperStatistics {
 
         /**
          * Add an execution of exception mapper.
+         *
          * @param mapper Exception mapper.
          * @param count Number of executions of the {@code mapper}.
          */
-        void addExceptionMapperExecution(Class<?> mapper, int count) {
+        void addExceptionMapperExecution(final Class<?> mapper, final int count) {
+            cached = null;
+
             Long cnt = exceptionMapperExecutionCount.get(mapper);
             cnt = cnt == null ? count : cnt + count;
             exceptionMapperExecutionCount.put(mapper, cnt);
         }
-
 
         /**
          * Build an instance of exception mapper statistics.
@@ -94,26 +102,27 @@ class ExceptionMapperStatisticsImpl implements ExceptionMapperStatistics {
          * @return New instance of exception mapper statistics.
          */
         public ExceptionMapperStatisticsImpl build() {
-            return new ExceptionMapperStatisticsImpl(Collections.unmodifiableMap(exceptionMapperExecutionCount),
-                    successfulMappings, unsuccessfulMappings, totalMappings);
+            if (cached == null) {
+                cached = new ExceptionMapperStatisticsImpl(Collections.unmodifiableMap(exceptionMapperExecutionCount),
+                        successfulMappings, unsuccessfulMappings, totalMappings);
+            }
+
+            return cached;
         }
     }
-
 
     private final Map<Class<?>, Long> exceptionMapperExecutionCount;
     private final long successfulMappings;
     private final long unsuccessfulMappings;
     private final long totalMappings;
 
-
-    private ExceptionMapperStatisticsImpl(Map<Class<?>, Long> exceptionMapperExecutionCount,
-                                         long successfulMappings, long unsuccessfulMappings, long totalMappings) {
+    private ExceptionMapperStatisticsImpl(final Map<Class<?>, Long> exceptionMapperExecutionCount, final long successfulMappings,
+                                          final long unsuccessfulMappings, final long totalMappings) {
         this.exceptionMapperExecutionCount = exceptionMapperExecutionCount;
         this.successfulMappings = successfulMappings;
         this.unsuccessfulMappings = unsuccessfulMappings;
         this.totalMappings = totalMappings;
     }
-
 
     @Override
     public Map<Class<?>, Long> getExceptionMapperExecutions() {
@@ -140,6 +149,5 @@ class ExceptionMapperStatisticsImpl implements ExceptionMapperStatistics {
         // snapshot functionality not yet implemented
         return this;
     }
-
 
 }

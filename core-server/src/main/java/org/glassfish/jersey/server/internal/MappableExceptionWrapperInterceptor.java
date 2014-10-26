@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -41,6 +41,7 @@ package org.glassfish.jersey.server.internal;
 
 import java.io.IOException;
 
+import javax.ws.rs.InternalServerErrorException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.ext.ReaderInterceptor;
 import javax.ws.rs.ext.ReaderInterceptorContext;
@@ -67,32 +68,26 @@ import org.glassfish.hk2.utilities.binding.AbstractBinder;
 public class MappableExceptionWrapperInterceptor implements ReaderInterceptor, WriterInterceptor {
 
     @Override
-    public Object aroundReadFrom(ReaderInterceptorContext context) throws IOException, WebApplicationException {
+    public Object aroundReadFrom(final ReaderInterceptorContext context) throws IOException, WebApplicationException {
         try {
             return context.proceed();
-        } catch (WebApplicationException wae) {
-            throw wae;
-        } catch (MessageBodyProviderNotFoundException nfe) {
-            throw nfe;
-        } catch (MappableException mappable) {
-            throw mappable;
-        } catch (Exception e) {
+        } catch (final WebApplicationException | MappableException | MessageBodyProviderNotFoundException e) {
+            throw e;
+        } catch (final Exception e) {
             throw new MappableException(e);
         }
 
     }
 
     @Override
-    public void aroundWriteTo(WriterInterceptorContext context) throws IOException, WebApplicationException {
+    public void aroundWriteTo(final WriterInterceptorContext context) throws IOException, WebApplicationException {
         try {
             context.proceed();
-        } catch (WebApplicationException wae) {
-            throw wae;
-        } catch (MessageBodyProviderNotFoundException nfe) {
-            throw nfe;
-        } catch (MappableException mappable) {
-            throw mappable;
-        } catch (Exception e) {
+        } catch (final WebApplicationException | MappableException e) {
+            throw e;
+        } catch (final MessageBodyProviderNotFoundException nfe) {
+            throw new InternalServerErrorException(nfe);
+        } catch (final Exception e) {
             throw new MappableException(e);
         }
 
@@ -107,7 +102,10 @@ public class MappableExceptionWrapperInterceptor implements ReaderInterceptor, W
 
         @Override
         protected void configure() {
-            bind(MappableExceptionWrapperInterceptor.class).to(ReaderInterceptor.class).to(WriterInterceptor.class).in(Singleton.class);
+            bind(MappableExceptionWrapperInterceptor.class)
+                    .to(ReaderInterceptor.class)
+                    .to(WriterInterceptor.class)
+                    .in(Singleton.class);
         }
     }
 }

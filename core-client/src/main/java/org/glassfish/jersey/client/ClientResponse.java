@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.annotation.Annotation;
+import java.net.URI;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -58,24 +59,28 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ReaderInterceptor;
 import javax.ws.rs.ext.WriterInterceptor;
 
-import org.glassfish.jersey.internal.util.collection.Value;
+import org.glassfish.jersey.client.internal.LocalizationMessages;
+import org.glassfish.jersey.internal.inject.ServiceLocatorSupplier;
 import org.glassfish.jersey.message.internal.InboundMessageContext;
 import org.glassfish.jersey.message.internal.OutboundJaxrsResponse;
 import org.glassfish.jersey.message.internal.Statuses;
 
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.collect.Collections2;
-import com.google.common.collect.Sets;
+import org.glassfish.hk2.api.ServiceLocator;
+
+import jersey.repackaged.com.google.common.base.Function;
+import jersey.repackaged.com.google.common.base.Objects;
+import jersey.repackaged.com.google.common.collect.Collections2;
+import jersey.repackaged.com.google.common.collect.Sets;
 
 /**
  * Jersey client response context.
  *
  * @author Marek Potociar (marek.potociar at oracle.com)
  */
-public class ClientResponse extends InboundMessageContext implements ClientResponseContext {
+public class ClientResponse extends InboundMessageContext implements ClientResponseContext, ServiceLocatorSupplier {
     private Response.StatusType status;
     private final ClientRequest requestContext;
+    private URI resolvedUri;
 
     /**
      * Create new Jersey client response context initialized from a JAX-RS {@link Response response}.
@@ -130,17 +135,22 @@ public class ClientResponse extends InboundMessageContext implements ClientRespo
      * @param requestContext associated client request context.
      */
     public ClientResponse(Response.StatusType status, ClientRequest requestContext) {
+        this(status, requestContext, requestContext.getUri());
+    }
+
+    /**
+     * Create a new Jersey client response context.
+     *
+     * @param status             response status.
+     * @param requestContext     associated client request context.
+     * @param resolvedRequestUri resolved request URI (see {@link #getResolvedRequestUri()}).
+     */
+    public ClientResponse(Response.StatusType status, ClientRequest requestContext, URI resolvedRequestUri) {
         this.status = status;
+        this.resolvedUri = resolvedRequestUri;
         this.requestContext = requestContext;
-        final Iterable<ReaderInterceptor> readerInterceptors = requestContext.getReaderInterceptors();
 
         setWorkers(requestContext.getWorkers());
-        setReaderInterceptors(new Value<Iterable<ReaderInterceptor>>() {
-            @Override
-            public Iterable<ReaderInterceptor> get() {
-                return readerInterceptors;
-            }
-        });
     }
 
     @Override
@@ -156,7 +166,7 @@ public class ClientResponse extends InboundMessageContext implements ClientRespo
     @Override
     public void setStatusInfo(Response.StatusType status) {
         if (status == null) {
-            throw new NullPointerException("Response status must not be 'null'");
+            throw new NullPointerException(LocalizationMessages.CLIENT_RESPONSE_STATUS_NULL());
         }
         this.status = status;
     }
@@ -164,6 +174,55 @@ public class ClientResponse extends InboundMessageContext implements ClientRespo
     @Override
     public Response.StatusType getStatusInfo() {
         return status;
+    }
+
+
+    /**
+     * Get the absolute URI of the ultimate request made to receive this response.
+     * <p>
+     * The returned URI points to the ultimate location of the requested resource that
+     * provided the data represented by this response instance. Because Jersey client connectors
+     * may be configured to {@link ClientProperties#FOLLOW_REDIRECTS
+     * automatically follow redirect responses}, the value of the URI returned by this method may
+     * be different from the value of the {@link javax.ws.rs.client.ClientRequestContext#getUri()
+     * original request URI} that can be retrieved using {@code response.getRequestContext().getUri()}
+     * chain of method calls.
+     * </p>
+     *
+     * @return absolute URI of the ultimate request made to receive this response.
+     *
+     * @see ClientProperties#FOLLOW_REDIRECTS
+     * @see #setResolvedRequestUri(java.net.URI)
+     * @since 2.6
+     */
+    public URI getResolvedRequestUri() {
+        return resolvedUri;
+    }
+
+    /**
+     * Set the absolute URI of the ultimate request that was made to receive this response.
+     * <p>
+     * If the original request URI has been modified (e.g. due to redirections), the absolute URI of
+     * the ultimate request being made to receive the response should be set by the caller
+     * on the response instance using this method.
+     * </p>
+     *
+     * @param uri absolute URI of the ultimate request made to receive this response. Must not be {@code null}.
+     * @throws java.lang.NullPointerException     in case the passed {@code uri} parameter is null.
+     * @throws java.lang.IllegalArgumentException in case the passed {@code uri} parameter does
+     *                                            not represent an absolute URI.
+     * @see ClientProperties#FOLLOW_REDIRECTS
+     * @see #getResolvedRequestUri()
+     * @since 2.6
+     */
+    public void setResolvedRequestUri(final URI uri) {
+        if (uri == null) {
+            throw new NullPointerException(LocalizationMessages.CLIENT_RESPONSE_RESOLVED_URI_NULL());
+        }
+        if (!uri.isAbsolute()) {
+            throw new IllegalArgumentException(LocalizationMessages.CLIENT_RESPONSE_RESOLVED_URI_NOT_ABSOLUTE());
+        }
+        this.resolvedUri = uri;
     }
 
     /**
@@ -189,7 +248,7 @@ public class ClientResponse extends InboundMessageContext implements ClientRespo
                     return link;
                 }
 
-                return Link.fromLink(link).baseUri(requestContext.getUri()).build();
+                return Link.fromLink(link).baseUri(getResolvedRequestUri()).build();
             }
         }));
     }
@@ -395,4 +454,13 @@ public class ClientResponse extends InboundMessageContext implements ClientRespo
         return (T) readEntity(entityType.getRawType(), entityType.getType(), annotations, requestContext.getPropertiesDelegate());
     }
 
+    @Override
+    public ServiceLocator getServiceLocator() {
+        return getRequestContext().getServiceLocator();
+    }
+
+    @Override
+    protected Iterable<ReaderInterceptor> getReaderInterceptors() {
+        return requestContext.getReaderInterceptors();
+    }
 }

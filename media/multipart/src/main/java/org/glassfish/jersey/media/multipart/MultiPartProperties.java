@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2010-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -45,6 +45,8 @@ import java.util.Properties;
 
 import javax.ws.rs.ext.ContextResolver;
 
+import org.glassfish.jersey.internal.util.PropertiesClass;
+
 /**
  * Injectable JavaBean containing the configuration parameters for
  * {@code jersey-multipart} as used in this particular application.
@@ -53,6 +55,7 @@ import javax.ws.rs.ext.ContextResolver;
  * @author Paul Sandoz (paul.sandoz at oracle.com)
  * @author Michal Gajdos (michal.gajdos at oracle.com)
  */
+@PropertiesClass
 public class MultiPartProperties {
 
     /**
@@ -74,6 +77,11 @@ public class MultiPartProperties {
      * The default value is {@value #DEFAULT_BUFFER_THRESHOLD}.
      */
     public static final String BUFFER_THRESHOLD = "jersey.config.multipart.bufferThreshold";
+
+    /**
+     * The {@link #BUFFER_THRESHOLD} property value to keep a body part entity in memory only.
+     */
+    public static final int BUFFER_THRESHOLD_MEMORY_ONLY = -1;
 
     /**
      * Name of the resource property for the directory to store temporary files containing body parts of multipart message that
@@ -136,7 +144,7 @@ public class MultiPartProperties {
      * @since 2.4.1
      */
     public MultiPartProperties bufferThreshold(final int threshold) {
-        this.bufferThreshold = threshold < -1 ? -1 : threshold;
+        this.bufferThreshold = threshold < BUFFER_THRESHOLD_MEMORY_ONLY ? BUFFER_THRESHOLD_MEMORY_ONLY : threshold;
         return this;
     }
 
@@ -175,22 +183,22 @@ public class MultiPartProperties {
             if (stream == null) {
                 return;
             }
-            Properties props = new Properties();
+            final Properties props = new Properties();
             props.load(stream);
 
             if (props.containsKey(BUFFER_THRESHOLD)) {
-                this.bufferThreshold = Integer.valueOf(props.getProperty(BUFFER_THRESHOLD));
+                this.bufferThreshold = Integer.parseInt(props.getProperty(BUFFER_THRESHOLD));
             }
             if (props.containsKey(TEMP_DIRECTORY)) {
                 this.tempDir = props.getProperty(TEMP_DIRECTORY);
             }
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new IllegalArgumentException(e);
         } finally {
             if (stream != null) {
                 try {
                     stream.close();
-                } catch (IOException e) {
+                } catch (final IOException e) {
                     // Pass through
                 }
             }

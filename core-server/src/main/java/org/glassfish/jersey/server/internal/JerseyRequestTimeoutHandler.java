@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -135,10 +135,7 @@ public class JerseyRequestTimeoutHandler {
                 throw new IllegalStateException(LocalizationMessages.SUSPEND_NOT_SUSPENDED());
             }
 
-            if (timeoutTask != null) {
-                timeoutTask.cancel(true);
-                timeoutTask = null;
-            }
+            close(true);
 
             if (timeOut <= AsyncResponse.NO_TIMEOUT) {
                 return;
@@ -147,8 +144,22 @@ public class JerseyRequestTimeoutHandler {
             try {
                 timeoutTask = executor.schedule(task, timeOut, unit);
             } catch (IllegalStateException ex) {
-                LOGGER.log(Level.WARNING, LocalizationMessages.SUSPEND_SHEDULING_ERROR(), ex);
+                LOGGER.log(Level.WARNING, LocalizationMessages.SUSPEND_SCHEDULING_ERROR(), ex);
             }
+        }
+    }
+
+    /**
+     * Cancel the suspended task.
+     */
+    public void close() {
+        close(false);
+    }
+
+    private synchronized void close(final boolean interruptIfRunning) {
+        if (timeoutTask != null) {
+            timeoutTask.cancel(interruptIfRunning);
+            timeoutTask = null;
         }
     }
 }

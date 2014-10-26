@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -58,7 +58,6 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.SecurityContext;
-import javax.ws.rs.ext.ReaderInterceptor;
 
 import org.glassfish.jersey.client.ClientProperties;
 import org.glassfish.jersey.client.ClientRequest;
@@ -68,16 +67,14 @@ import org.glassfish.jersey.client.spi.Connector;
 import org.glassfish.jersey.client.spi.ConnectorProvider;
 import org.glassfish.jersey.internal.MapPropertiesDelegate;
 import org.glassfish.jersey.internal.PropertiesDelegate;
-import org.glassfish.jersey.internal.util.PropertiesHelper;
-import org.glassfish.jersey.internal.util.collection.Value;
 import org.glassfish.jersey.message.internal.OutboundMessageContext;
 import org.glassfish.jersey.server.ApplicationHandler;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.ContainerResponse;
 import org.glassfish.jersey.server.spi.ContainerResponseWriter;
 
-import com.google.common.collect.Lists;
-import com.google.common.util.concurrent.MoreExecutors;
+import jersey.repackaged.com.google.common.collect.Lists;
+import jersey.repackaged.com.google.common.util.concurrent.MoreExecutors;
 
 /**
  * In-memory client connector.
@@ -249,7 +246,7 @@ class InMemoryConnector implements Connector {
         containerRequest.setEntityStream(new ByteArrayInputStream(clientOutput.toByteArray()));
 
 
-        boolean followRedirects = PropertiesHelper.getValue(clientRequest.getConfiguration().getProperties(),
+        boolean followRedirects = ClientProperties.getValue(clientRequest.getConfiguration().getProperties(),
                 ClientProperties.FOLLOW_REDIRECTS, true);
 
         final InMemoryResponseWriter inMemoryResponseWriter = new InMemoryResponseWriter();
@@ -310,12 +307,6 @@ class InMemoryConnector implements Connector {
     private ClientResponse createClientResponse(final ClientRequest clientRequest,
                                                 final InMemoryResponseWriter responseWriter) {
         final ClientResponse clientResponse = new ClientResponse(responseWriter.getStatusInfo(), clientRequest);
-        clientResponse.setReaderInterceptors(new Value<Iterable<ReaderInterceptor>>() {
-            @Override
-            public Iterable<ReaderInterceptor> get() {
-                return clientRequest.getReaderInterceptors();
-            }
-        });
         clientResponse.getHeaders().putAll(responseWriter.getHeaders());
         clientResponse.setEntityStream(new ByteArrayInputStream(responseWriter.getEntity()));
         return clientResponse;
@@ -323,22 +314,28 @@ class InMemoryConnector implements Connector {
 
     @SuppressWarnings("MagicNumber")
     private ClientResponse tryFollowRedirects(boolean followRedirects, ClientResponse response, ClientRequest request) {
-        final int statusCode = response.getStatus();
-        if (!followRedirects || statusCode < 302 || statusCode > 307) {
+        if (!followRedirects) {
             return response;
         }
 
-        switch (statusCode) {
-            case 303:
-                request.setMethod("GET");
-                // intentionally no break
-            case 302:
-            case 307:
-                request.setUri(response.getLocation());
-
-                return apply(request);
-            default:
-                return response;
+        while (true) {
+            boolean useGetMethod = false;
+            switch (response.getStatus()) {
+                case 303:
+                    useGetMethod = true;
+                    // intentionally no break
+                case 302:
+                case 307:
+                    request = new ClientRequest(request);
+                    request.setUri(response.getLocation());
+                    if (useGetMethod) {
+                        request.setMethod("GET");
+                    }
+                    response = apply(request);
+                    break;
+                default:
+                    return response;
+            }
         }
     }
 

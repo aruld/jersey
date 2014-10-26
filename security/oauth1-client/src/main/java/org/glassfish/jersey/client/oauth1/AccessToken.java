@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -40,6 +40,8 @@
 
 package org.glassfish.jersey.client.oauth1;
 
+import java.util.Arrays;
+
 /**
  * Access Token class (credentials issued by the Service Provider for the user).
  * The class stores client secret as byte array to improve security.
@@ -59,7 +61,7 @@ public final class AccessToken {
      * @param token Access token.
      * @param accessTokenSecret Access token secret.
      */
-    public AccessToken(String token, String accessTokenSecret) {
+    public AccessToken(final String token, final String accessTokenSecret) {
         this.token = token;
         this.accessTokenSecret = accessTokenSecret.getBytes();
     }
@@ -68,9 +70,9 @@ public final class AccessToken {
      * Create a new access token with secret defined as byte array.
      *
      * @param token Access token.
-     * @param accessTokenSecret Access token secret as byte array.
+     * @param accessTokenSecret Access token secret as byte array in the default encoding.
      */
-    public AccessToken(String token, byte[] accessTokenSecret) {
+    public AccessToken(final String token, final byte[] accessTokenSecret) {
         this.token = token;
         this.accessTokenSecret = accessTokenSecret;
     }
@@ -100,4 +102,31 @@ public final class AccessToken {
         return accessTokenSecret;
     }
 
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        final AccessToken that = (AccessToken) o;
+
+        if (!Arrays.equals(accessTokenSecret, that.accessTokenSecret)) {
+            return false;
+        }
+        if (!token.equals(that.token)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = token.hashCode();
+        result = 31 * result + Arrays.hashCode(accessTokenSecret);
+        return result;
+    }
 }

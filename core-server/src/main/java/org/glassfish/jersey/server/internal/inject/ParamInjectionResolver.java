@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -61,8 +61,8 @@ import org.glassfish.hk2.api.InjectionResolver;
 import org.glassfish.hk2.api.ServiceHandle;
 import org.glassfish.hk2.api.ServiceLocator;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.Sets;
+import jersey.repackaged.com.google.common.base.Predicate;
+import jersey.repackaged.com.google.common.collect.Sets;
 
 /**
  * Abstract base class for resolving JAX-RS {@code &#64;XxxParam} injection.
@@ -166,7 +166,7 @@ public abstract class ParamInjectionResolver<A extends Annotation> implements In
         }
 
         // check class which contains injectee
-        Class clazz = injectee.getInjecteeClass();
+        Class<?> clazz = injectee.getInjecteeClass();
         return clazz.isAnnotationPresent(Encoded.class);
     }
 

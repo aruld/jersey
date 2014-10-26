@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -41,10 +41,10 @@ package org.glassfish.jersey.internal.inject;
 
 import java.lang.reflect.Type;
 
+import javax.ws.rs.core.Context;
+
 import javax.inject.Inject;
 import javax.inject.Singleton;
-
-import javax.ws.rs.core.Context;
 
 import org.glassfish.jersey.internal.util.ReflectionHelper;
 
@@ -57,6 +57,8 @@ import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.api.TypeLiteral;
 import org.glassfish.hk2.utilities.InjecteeImpl;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
+import org.glassfish.hk2.utilities.cache.Cache;
+import org.glassfish.hk2.utilities.cache.Computable;
 
 /**
  * Injection resolver for {@link Context @Context} injection annotation.
@@ -82,6 +84,15 @@ public class ContextInjectionResolver implements InjectionResolver<Context> {
     @Inject
     private ServiceLocator serviceLocator;
 
+    private final Cache<Injectee, ActiveDescriptor<?>> descriptorCache
+            = new Cache<Injectee, ActiveDescriptor<?>>(new Computable<Injectee, ActiveDescriptor<?>>() {
+
+                @Override
+                public ActiveDescriptor<?> compute(Injectee key) {
+                    return serviceLocator.getInjecteeDescriptor(key);
+                }
+            });
+
     @Override
     public Object resolve(Injectee injectee, ServiceHandle<?> root) {
         Type requiredType = injectee.getRequiredType();
@@ -94,7 +105,8 @@ public class ContextInjectionResolver implements InjectionResolver<Context> {
             newInjectee = injectee;
         }
 
-        ActiveDescriptor<?> ad = serviceLocator.getInjecteeDescriptor(newInjectee);
+        ActiveDescriptor<?> ad = descriptorCache.compute(newInjectee);
+
         if (ad != null) {
             final ServiceHandle handle = serviceLocator.getServiceHandle(ad, newInjectee);
 

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -46,19 +46,18 @@ import java.util.List;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
-import javax.ws.rs.client.Client;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Application;
 import javax.ws.rs.core.Response;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
-import org.glassfish.jersey.server.ApplicationHandler;
+import org.glassfish.jersey.client.ClientConfig;
+import org.glassfish.jersey.jackson.JacksonFeature;
 import org.glassfish.jersey.server.JSONP;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.test.JerseyTest;
 import org.glassfish.jersey.test.TestProperties;
-import org.glassfish.jersey.test.spi.TestContainer;
 
 import org.hamcrest.Matcher;
 import org.junit.Test;
@@ -142,11 +141,11 @@ public class JsonWithPaddingTest extends JerseyTest {
         }
     }
 
-    @Parameterized.Parameters()
+    @Parameterized.Parameters(name = "{0}")
     public static Collection<JsonTestProvider[]> getJsonProviders() throws Exception {
         final List<JsonTestProvider[]> testProviders = new LinkedList<JsonTestProvider[]>();
 
-        for (JsonTestProvider jsonProvider : JsonTestProvider.JAXB_PROVIDERS) {
+        for (final JsonTestProvider jsonProvider : JsonTestProvider.JAXB_PROVIDERS) {
             testProviders.add(new JsonTestProvider[]{jsonProvider});
         }
 
@@ -167,10 +166,8 @@ public class JsonWithPaddingTest extends JerseyTest {
     }
 
     @Override
-    protected Client getClient(final TestContainer tc, final ApplicationHandler applicationHandler) {
-        final Client client = super.getClient(tc, applicationHandler);
-        client.register(jsonTestProvider.getFeature());
-        return client;
+    protected void configureClient(final ClientConfig config) {
+        config.register(jsonTestProvider.getFeature());
     }
 
     private static Application configureJaxrsApplication(final JsonTestProvider jsonTestProvider) {
@@ -202,7 +199,11 @@ public class JsonWithPaddingTest extends JerseyTest {
         final Response response = target("jsonp").path("PureJson").request("application/x-javascript").get();
 
         // Method is invoked but we do not have a MBW for application/x-javascript.
-        assertThat(response.getStatus(), equalTo(500));
+        if (jsonTestProvider.getFeature().getClass() == JacksonFeature.class) {
+            assertThat(response.getStatus(), equalTo(200));
+        } else {
+            assertThat(response.getStatus(), equalTo(500));
+        }
     }
 
     @Test

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -42,23 +42,27 @@ package org.glassfish.jersey.server.internal.monitoring;
 
 import java.util.List;
 import java.util.Queue;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.ws.rs.ProcessingException;
 
+import javax.annotation.Priority;
 import javax.inject.Inject;
 
 import org.glassfish.jersey.server.internal.LocalizationMessages;
 import org.glassfish.jersey.server.model.ResourceMethod;
 import org.glassfish.jersey.server.monitoring.ApplicationEvent;
 import org.glassfish.jersey.server.monitoring.ApplicationEventListener;
+import org.glassfish.jersey.server.monitoring.DestroyListener;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
 import org.glassfish.jersey.uri.UriTemplate;
 
 import org.glassfish.hk2.api.ServiceLocator;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Queues;
+import jersey.repackaged.com.google.common.collect.Lists;
+import jersey.repackaged.com.google.common.collect.Queues;
 
 /**
  * {@link ApplicationEventListener application event listener} that listens to {@link ApplicationEvent application}
@@ -72,35 +76,40 @@ import com.google.common.collect.Queues;
  * This event listener must be registered as a standard provider when monitoring statistics are required
  * in the runtime.
  * </p>
- * @see MonitoringStatisticsProcessor
+ *
  * @author Miroslav Fuksa (miroslav.fuksa at oracle.com)
+ * @see MonitoringStatisticsProcessor
  */
-public class MonitoringEventListener implements ApplicationEventListener {
+@Priority(ApplicationInfoListener.PRIORITY + 100)
+public final class MonitoringEventListener implements ApplicationEventListener {
+
+    private static final Logger LOGGER = Logger.getLogger(MonitoringEventListener.class.getName());
+    private static final int EVENT_QUEUE_SIZE = 50000;
+
     @Inject
     private ServiceLocator serviceLocator;
 
-    private final Queue<ApplicationEvent> applicationEvents = Queues.newArrayBlockingQueue(20);
-    private final Queue<RequestStats> requestQueuedItems = Queues.newArrayBlockingQueue(50000);
-    private final Queue<Integer> responseStatuses = Queues.newArrayBlockingQueue(50000);
-    private final Queue<RequestEvent> exceptionMapperEvents = Queues.newArrayBlockingQueue(50000);
-    private volatile long applicationStartTime;
+    private final Queue<RequestStats> requestQueuedItems = Queues.newArrayBlockingQueue(EVENT_QUEUE_SIZE);
+    private final Queue<Integer> responseStatuses = Queues.newArrayBlockingQueue(EVENT_QUEUE_SIZE);
+    private final Queue<RequestEvent> exceptionMapperEvents = Queues.newArrayBlockingQueue(EVENT_QUEUE_SIZE);
     private volatile MonitoringStatisticsProcessor monitoringStatisticsProcessor;
-
 
     /**
      * Time statistics.
      */
     static class TimeStats {
+
         private final long duration;
         private final long startTime;
 
-        private TimeStats(long startTime, long requestDuration) {
+        private TimeStats(final long startTime, final long requestDuration) {
             this.duration = requestDuration;
             this.startTime = startTime;
         }
 
         /**
          * Get duration.
+         *
          * @return Duration in milliseconds.
          */
         long getDuration() {
@@ -109,6 +118,7 @@ public class MonitoringEventListener implements ApplicationEventListener {
 
         /**
          * Get start time.
+         *
          * @return Start time (Unix timestamp format).
          */
         long getStartTime() {
@@ -117,18 +127,20 @@ public class MonitoringEventListener implements ApplicationEventListener {
     }
 
     /**
-     * Method statistics
+     * Method statistics.
      */
     static class MethodStats extends TimeStats {
+
         private final ResourceMethod method;
 
-        private MethodStats(ResourceMethod method, long startTime, long requestDuration) {
+        private MethodStats(final ResourceMethod method, final long startTime, final long requestDuration) {
             super(startTime, requestDuration);
             this.method = method;
         }
 
         /**
          * Get the resource method executed.
+         *
          * @return resource method.
          */
         ResourceMethod getMethod() {
@@ -139,12 +151,13 @@ public class MonitoringEventListener implements ApplicationEventListener {
     /**
      * Request statistics.
      */
-    class RequestStats {
+    static class RequestStats {
+
         private final TimeStats requestStats;
         private final MethodStats methodStats; // might be null if a method was not executed during a request
         private final String requestUri;
 
-        private RequestStats(TimeStats requestStats, MethodStats methodStats, String requestUri) {
+        private RequestStats(final TimeStats requestStats, final MethodStats methodStats, final String requestUri) {
             this.requestStats = requestStats;
             this.methodStats = methodStats;
             this.requestUri = requestUri;
@@ -152,6 +165,7 @@ public class MonitoringEventListener implements ApplicationEventListener {
 
         /**
          * Get request statistics.
+         *
          * @return request statistics.
          */
         TimeStats getRequestStats() {
@@ -160,6 +174,7 @@ public class MonitoringEventListener implements ApplicationEventListener {
 
         /**
          * Get method statistics.
+         *
          * @return method statistics.
          */
         MethodStats getMethodStats() {
@@ -168,6 +183,7 @@ public class MonitoringEventListener implements ApplicationEventListener {
 
         /**
          * Get the request uri.
+         *
          * @return request uri.
          */
         String getRequestUri() {
@@ -176,7 +192,7 @@ public class MonitoringEventListener implements ApplicationEventListener {
     }
 
     @Override
-    public ReqEventListener onRequest(RequestEvent requestEvent) {
+    public ReqEventListener onRequest(final RequestEvent requestEvent) {
         switch (requestEvent.getType()) {
             case START:
                 return new ReqEventListener();
@@ -186,36 +202,47 @@ public class MonitoringEventListener implements ApplicationEventListener {
     }
 
     @Override
-    public void onEvent(ApplicationEvent event) {
-        final long now = System.currentTimeMillis();
+    public void onEvent(final ApplicationEvent event) {
         final ApplicationEvent.Type type = event.getType();
         switch (type) {
             case INITIALIZATION_START:
                 break;
             case RELOAD_FINISHED:
             case INITIALIZATION_FINISHED:
-                this.applicationStartTime = now;
-                this.applicationEvents.add(event);
                 this.monitoringStatisticsProcessor = new MonitoringStatisticsProcessor(serviceLocator, this);
                 this.monitoringStatisticsProcessor.startMonitoringWorker();
                 break;
             case DESTROY_FINISHED:
-                this.applicationEvents.add(event);
                 if (monitoringStatisticsProcessor != null) {
                     try {
                         monitoringStatisticsProcessor.shutDown();
-                    } catch (InterruptedException e) {
+                    } catch (final InterruptedException e) {
                         Thread.currentThread().interrupt();
                         throw new ProcessingException(LocalizationMessages.ERROR_MONITORING_SHUTDOWN_INTERRUPTED(), e);
                     }
                 }
+
+                // onDestroy
+                final List<DestroyListener> listeners =
+                        serviceLocator.getAllServices(DestroyListener.class);
+
+                for (final DestroyListener listener : listeners) {
+                    try {
+                        listener.onDestroy();
+                    } catch (final Exception e) {
+                        LOGGER.log(Level.WARNING,
+                                LocalizationMessages.ERROR_MONITORING_STATISTICS_LISTENER_DESTROY(listener.getClass()), e);
+                    }
+                }
+
                 break;
 
         }
     }
 
     private class ReqEventListener implements RequestEventListener {
-        private volatile long requestTimeStart;
+
+        private final long requestTimeStart;
         private volatile long methodTimeStart;
         private volatile MethodStats methodStats;
 
@@ -224,8 +251,9 @@ public class MonitoringEventListener implements ApplicationEventListener {
         }
 
         @Override
-        public void onEvent(RequestEvent event) {
+        public void onEvent(final RequestEvent event) {
             final long now = System.currentTimeMillis();
+
             switch (event.getType()) {
                 case RESOURCE_METHOD_START:
                     this.methodTimeStart = now;
@@ -235,16 +263,20 @@ public class MonitoringEventListener implements ApplicationEventListener {
                     methodStats = new MethodStats(method, methodTimeStart, now - methodTimeStart);
                     break;
                 case EXCEPTION_MAPPING_FINISHED:
-                    exceptionMapperEvents.add(event);
+                    if (!exceptionMapperEvents.offer(event)) {
+                        LOGGER.warning(LocalizationMessages.ERROR_MONITORING_QUEUE_MAPPER());
+                    }
                     break;
                 case FINISHED:
                     if (event.isResponseWritten()) {
-                        responseStatuses.add(event.getContainerResponse().getStatus());
+                        if (!responseStatuses.offer(event.getContainerResponse().getStatus())) {
+                            LOGGER.warning(LocalizationMessages.ERROR_MONITORING_QUEUE_RESPONSE());
+                        }
                     }
-                    StringBuilder sb = new StringBuilder();
-                    List<UriTemplate> orderedTemplates = Lists.reverse(event.getUriInfo().getMatchedTemplates());
+                    final StringBuilder sb = new StringBuilder();
+                    final List<UriTemplate> orderedTemplates = Lists.reverse(event.getUriInfo().getMatchedTemplates());
 
-                    for (UriTemplate uriTemplate : orderedTemplates) {
+                    for (final UriTemplate uriTemplate : orderedTemplates) {
                         sb.append(uriTemplate.getTemplate());
                         if (!uriTemplate.endsWithSlash()) {
                             sb.append("/");
@@ -252,31 +284,18 @@ public class MonitoringEventListener implements ApplicationEventListener {
                         sb.setLength(sb.length() - 1);
                     }
 
-                    requestQueuedItems.add(new RequestStats(new TimeStats(requestTimeStart, now - requestTimeStart),
-                            methodStats, sb.toString()));
+                    if (!requestQueuedItems.offer(new RequestStats(new TimeStats(requestTimeStart, now - requestTimeStart),
+                            methodStats, sb.toString()))) {
+                        LOGGER.warning(LocalizationMessages.ERROR_MONITORING_QUEUE_REQUEST());
+                    }
+
             }
         }
     }
 
-
-    /**
-     * Get the time of application start (when initialization is finished).
-     * @return time in Unix timestamp format.
-     */
-    long getApplicationStartTime() {
-        return applicationStartTime;
-    }
-
-    /**
-     * Get the queue of application events.
-     * @return Application event queue.
-     */
-    public Queue<ApplicationEvent> getApplicationEvents() {
-        return applicationEvents;
-    }
-
     /**
      * Get the exception mapper event queue.
+     *
      * @return Exception mapper event queue.
      */
     Queue<RequestEvent> getExceptionMapperEvents() {
@@ -285,6 +304,7 @@ public class MonitoringEventListener implements ApplicationEventListener {
 
     /**
      * Get the request event queue.
+     *
      * @return Request event queue.
      */
     Queue<RequestStats> getRequestQueuedItems() {
@@ -293,11 +313,10 @@ public class MonitoringEventListener implements ApplicationEventListener {
 
     /**
      * Get the queue with response status codes.
+     *
      * @return response status queue.
      */
     Queue<Integer> getResponseStatuses() {
         return responseStatuses;
     }
-
-
 }

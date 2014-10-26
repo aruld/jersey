@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -55,7 +55,6 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Configurable;
 import javax.ws.rs.core.Configuration;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.UriBuilder;
 
 import javax.inject.Inject;
 
@@ -72,13 +71,14 @@ import org.glassfish.jersey.server.ExtendedUriInfo;
 import org.glassfish.jersey.server.Uri;
 import org.glassfish.jersey.server.internal.LocalizationMessages;
 import org.glassfish.jersey.server.model.Parameter;
+import org.glassfish.jersey.uri.internal.JerseyUriBuilder;
 
 import org.glassfish.hk2.api.ServiceLocator;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Collections2;
-import com.google.common.collect.Maps;
+import jersey.repackaged.com.google.common.base.Function;
+import jersey.repackaged.com.google.common.base.Predicate;
+import jersey.repackaged.com.google.common.collect.Collections2;
+import jersey.repackaged.com.google.common.collect.Maps;
 
 /**
  * Value factory provider supporting the {@link Uri} injection annotation.
@@ -271,15 +271,15 @@ final class WebTargetValueFactoryProvider extends AbstractValueFactoryProvider {
                     return input.isEmpty() ? null : input.get(0);
                 }
             });
-            UriBuilder uriBuilder = UriBuilder.fromUri(this.uri).resolveTemplates(pathParamValues);
+            JerseyUriBuilder uriBuilder = new JerseyUriBuilder().uri(this.uri).resolveTemplates(pathParamValues);
 
             final ManagedClient managedClient = client.get();
 
-            if (!uriBuilder.build().isAbsolute()) {
+            if (!uriBuilder.isAbsolute()) {
                 final String customBaseUri = managedClient.customBaseUri;
                 final String rootUri = customBaseUri.isEmpty() ? uriInfo.getBaseUri().toString() : customBaseUri;
 
-                uriBuilder = UriBuilder.fromUri(rootUri).path(uriBuilder.toTemplate());
+                uriBuilder = new JerseyUriBuilder().uri(rootUri).path(uriBuilder.toTemplate());
             }
 
             return managedClient.instance.target(uriBuilder);
@@ -387,7 +387,7 @@ final class WebTargetValueFactoryProvider extends AbstractValueFactoryProvider {
                     }
                     return new WebTargetValueFactory(targetUriTemplate, client);
                 } else {
-                    Errors.warning(this, LocalizationMessages.UNSUPPORTED_CLIENT_ARTEFACT_INJECTION_TYPE(rawParameterType));
+                    Errors.warning(this, LocalizationMessages.UNSUPPORTED_URI_INJECTION_TYPE(rawParameterType));
                     return null;
                 }
             }

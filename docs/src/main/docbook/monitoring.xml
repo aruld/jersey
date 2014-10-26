@@ -2,7 +2,7 @@
 <!--
   ~ DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
   ~
-  ~ Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+  ~ Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
   ~
   ~ The contents of this file are subject to the terms of either the GNU
   ~ General Public License Version 2 only ("GPL") or the Common Development
@@ -298,8 +298,9 @@ Application my-monitored-application destroyed.</programlisting>
                     <listitem><para>
                         Implement event listeners as thread safe. While individual events will be arriving serially,
                         individual listener invocations may occur from different threads. Thus make sure that your listeners
-                        are processing data safely with respect to their &wiki.JavaMemoryModel; visibility (in the example above
-                        the fields <literal>requestNumber</literal>, <literal>startTime</literal> of
+                        are processing data safely with respect to their
+                        <link xlink:href='&wikipedia.uri;/Java_Memory_Model'>Java Memory Model</link> visibility (in the example
+                        above the fields <literal>requestNumber</literal>, <literal>startTime</literal> of
                         <literal>MyRequestEventListener</literal> are final and therefore the same value is
                         visible for all threads executing the <literal>onEvent()</literal> method).
                     </para></listitem>
@@ -410,13 +411,7 @@ request count: 4, average request processing [ms]: 73</programlisting>
                             </listitem>
                         </varlistentry>
                         <varlistentry>
-                            <term>&jersey.server.monitoring.ApplicationStatistics;</term>
-                            <listitem>
-                                <para>mostly configuration of the application</para>
-                            </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                            <term>&lit.jersey.server.monitoring.ResponseStatistics;</term>
+                            <term>&jersey.server.monitoring.ResponseStatistics;</term>
                             <listitem>
                                 <para>response statistics (eg. response status codes and their count)</para>
                             </listitem>
@@ -503,7 +498,9 @@ request count: 4, average request processing [ms]: 73</programlisting>
                 <title>Monitoring Statistics as MBeans</title>
                 <note>
                     <para>
-                        Jersey examples contains &jersey.github.monitoring.example.path; which demonstrates usage of MBean statistics.
+                        Jersey examples contains a
+                        <link xlink:href='&jersey.github.examples.uri;/monitoring-webapp'>Monitoring Web Application Example</link>
+                        which demonstrates usage of MBean statistics.
                     </para>
                 </note>
 
@@ -552,7 +549,7 @@ request count: 4, average request processing [ms]: 73</programlisting>
                     individual resources.
                     Statistics in <literal>Resources</literal> are bound to the JAX-RS resource Java classes loaded by the
                     application. <literal>Uris</literal> contains statistics of resources based on the matched application Uris
-                    (one URI entry represents all methods bound to the particula URI, e.g. <literal>/resource/exception</literal>).
+                    (one URI entry represents all methods bound to the particular URI, e.g. <literal>/resource/exception</literal>).
                     As Jersey provides programmatic resource builders (described in the chapter
                     <link linkend="resource-builder">"Programmatic API for Building Resources"</link>), one Java resource class
                     can be an endpoint for resource methods on many different URIs. And also one URI can be served by method from
@@ -573,7 +570,7 @@ request count: 4, average request processing [ms]: 73</programlisting>
                 </para>
                 <para>Additional useful details that about statistics</para>
                 <itemizedlist>
-                    <listitem><para><literal>Global->Configuration->Registered(Claases/Instances)</literal>:
+                    <listitem><para><literal>Global->Configuration->Registered(Classes/Instances)</literal>:
                         registered resource classes and instances by the user (i.e., not added by &jersey.server.ModelProcessor;
                         during deployment for example).
                     </para></listitem>
@@ -581,7 +578,7 @@ request count: 4, average request processing [ms]: 73</programlisting>
                         map that contains exception mapper classes as keys and number of their execution as values.
                     </para></listitem>
                     <listitem><para>
-                        <literal>Global->Responses-?ResponseCodesToCountMap</literal>:
+                        <literal>Global->Responses->ResponseCodesToCountMap</literal>:
                         map that contains response codes as keys and their total occurrence in responses as values.
                     </para></listitem>
                     <listitem><para>
@@ -661,12 +658,12 @@ request count: 4, average request processing [ms]: 73</programlisting>
             headers of a response for the request. The information is also logged on the server side using a dedicated Java
             Logger instance.
         </para>
-        <section>
+        <section xml:id="tracing.configuration">
             <title>Configuration options</title>
             <para>
                 Tracing support is disabled by default. You can enable it either "globally" for all application requests
                 or selectively per request. The tracing support activation is controlled by setting the
-                <literal>jersey.config.server.tracing</literal> application configuration property. The property value
+                <literal>jersey.config.server.tracing.type</literal> application configuration property. The property value
                 is expected to be one of the following:
 
                 <itemizedlist>

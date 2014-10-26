@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2010-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -65,7 +65,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import jersey.repackaged.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 public class AsyncResourceTest extends JerseyTest {
     private static final Logger LOGGER = Logger.getLogger(AsyncResourceTest.class.getName());
@@ -91,7 +91,7 @@ public class AsyncResourceTest extends JerseyTest {
 
     private void executeChatTest(final WebTarget resourceTarget, final String expectedPostResponse) throws InterruptedException {
         final int MAX_MESSAGES = 100;
-        final int LATCH_WAIT_TIMEOUT = 10;
+        final int LATCH_WAIT_TIMEOUT = 10 * getAsyncTimeoutMultiplier();
         final boolean debugMode = false;
         final boolean sequentialGet = false;
         final boolean sequentialPost = false;
@@ -246,7 +246,7 @@ public class AsyncResourceTest extends JerseyTest {
         final String expectedResponse = SimpleLongRunningResource.NOTIFICATION_RESPONSE;
 
         final int MAX_MESSAGES = 100;
-        final int LATCH_WAIT_TIMEOUT = 25;
+        final int LATCH_WAIT_TIMEOUT = 25 * getAsyncTimeoutMultiplier();
         final boolean debugMode = false;
         final boolean sequentialGet = false;
         final Object sequentialGetLock = new Object();

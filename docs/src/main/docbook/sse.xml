@@ -3,7 +3,7 @@
 
     DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 
-    Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+    Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
 
     The contents of this file are subject to the terms of either the GNU
     General Public License Version 2 only ("GPL") or the Common Development
@@ -101,9 +101,10 @@
                             client on the same initial connection. Client processes the messages sent back from the server
                             individually without closing the connection after processing each message.
                             So, SSE typically reuses one connection for more messages (called events). SSE also defines a
-                            dedicated media type that describes a simple format of individual evnets sent from the server to the
+                            dedicated media type that describes a simple format of individual events sent from the server to the
                             client. SSE also offers standard javascript client API implemented most modern browsers. For more
-                            information about SSE, see the &sse.spec.link;.
+                            information about SSE, see the
+                            <link xlink:href='http://www.w3.org/TR/2009/WD-eventsource-20091029/'>SSE API specification</link>.
                         </para>
                     </listitem>
                 </varlistentry>
@@ -180,8 +181,18 @@
     <artifactId>jersey-media-sse</artifactId>
 </dependency>]]></programlisting>
             </example>
-            Then you need register &jersey.sse.SseFeature;. The &lit.jersey.sse.SseFeature; is a feature that can be registered
-            for both, the client and the server.
+            <note>
+                <para>
+                    Prior to Jersey 2.8, you had to manually register &jersey.sse.SseFeature; in your application.
+                    (The &lit.jersey.sse.SseFeature; is a feature that can be registered for both, the client and the server.)
+                    Since Jersey 2.8, the feature gets automatically discovered and registered when Jersey SSE module is
+                    put on the application's classpath. The automatic discovery and registration of SSE feature can be suppressed
+                    by setting &jersey.sse.SseFeature.DISABLE_SSE; property to <literal>true</literal>.
+                    The behavior can also be selectively suppressed in either client or server runtime by setting
+                    &jersey.sse.SseFeature.DISABLE_SSE_CLIENT; or &jersey.sse.SseFeature.DISABLE_SSE_SERVER; property
+                    respectively.
+                </para>
+            </note>
         </para>
         <para>
             &lit.jersey.sse.SseFeature; adds new supported entity (representation) Java types, namely &jersey.sse.OutboundEvent;
@@ -190,7 +201,7 @@
             There is no restriction for a media type used in individual event messages; however the media type used for a SSE
             stream as whole is <emphasis>"text/event-stream"</emphasis> and this media type should be set on messages that
             are used to serve SSE events (for example on the server side using &jaxrs.Produces; on the method that returns an
-            &lit.jersey.sse.EventOutput; - see bellow).
+            &lit.jersey.sse.EventOutput; - see below).
             The &lit.jersey.sse.InboundEvent; and &lit.jersey.sse.OutboundEvent; contain all the fields needed for composing
             and processing individual SSE events. These entities represent the <emphasis>chunks</emphasis> sent or received over
             an open server-to-client connection that is represented by an &jersey.server.ChunkedOutput; on the servers side and
@@ -209,7 +220,7 @@
             group, and exposes methods for broadcasting new events to all the client connections grouped in the broadcaster.
             The &lit.jersey.sse.SseBroadcaster; inherits from &jersey.server.Broadcaster; which is the generic broadcaster
             implementation of the Jersey chunked message processing facility.
-            On the he client side, the Jersey SSE API contains additional &jersey.sse.EventSource; and &jersey.sse.EventListener;
+            On the client side, the Jersey SSE API contains additional &jersey.sse.EventSource; and &jersey.sse.EventListener;
             classes that further improve convenience of processing new inbound SSE events.
         </para>
     </section>
@@ -325,7 +336,7 @@ public static class SseResource {
                 is serialized by internal &lit.jersey.sse.OutboundEventWriter; which uses an appropriate
                 &lit.jaxrs.ext.MessageBodyWriter; to serialize the <literal>"Hello world " + i + "!"</literal> string. You can
                 send as many messages as you like. At the end of the thread execution the response is closed which also closes
-                the connection to the client. After that, no more messages can be send to the client on this connection. If the
+                the connection to the client. After that, no more messages can be sent to the client on this connection. If the
                 client would like to receive more messages, it would have to send a new request to the server to initiate a
                 new SSE streaming connection.
             </para>
@@ -419,7 +430,7 @@ public static class BroadcasterResource {
 
         broadcaster.broadcast(event);
 
-        return "Message was '" + message + "' broadcast.";
+        return "Message '" + message + "' has been broadcast.";
     }
 
     @GET
@@ -673,7 +684,7 @@ eventSource.close();</programlisting>
                 <para>
                     By default, when a connection the the SSE endpoint is lost, the event source will use a default delay
                     before attempting to reconnect to the SSE endpoint. The SSE endpoint can however control the client-side
-                    retry delay by including a special <literal>retry</literal> field value in the any send event.
+                    retry delay by including a special <literal>retry</literal> field value in any event sent to the client.
                     Jersey &lit.jersey.sse.EventSource; implementation automatically tracks any received SSE event
                     <literal>retry</literal> field values set by the endpoint and adjusts the reconnect delay accordingly,
                     using the last received <literal>retry</literal> field value as the new reconnect delay.
@@ -684,7 +695,7 @@ eventSource.close();</programlisting>
                     that include a <literal>Retry-After</literal> HTTP header with a valid value. The
                     <literal>HTTP 503 + Retry-After</literal> technique is often used by HTTP endpoints as a means of
                     connection and traffic throttling. In case a <literal>HTTP 503 + Retry-After</literal> response is received
-                    in return to a connection request from SSE endpoint, Jersey {@code EventSource} will automatically
+                    in return to a connection request from SSE endpoint, Jersey <literal>EventSource</literal> will automatically
                     schedule a reconnect attempt  and use the received <literal>Retry-After</literal> HTTP header value as a
                     one-time override of the reconnect delay.
                 </para>

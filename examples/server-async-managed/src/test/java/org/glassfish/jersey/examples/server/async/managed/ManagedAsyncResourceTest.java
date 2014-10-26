@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2010-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -66,7 +66,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import jersey.repackaged.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 /**
  * Test for the asynchronous managed resources example.
@@ -99,7 +99,7 @@ public class ManagedAsyncResourceTest extends JerseyTest {
         final String expectedResponse = SimpleJerseyExecutorManagedLongRunningResource.NOTIFICATION_RESPONSE;
 
         final int MAX_MESSAGES = 100;
-        final int LATCH_WAIT_TIMEOUT = 10;
+        final int LATCH_WAIT_TIMEOUT = 10 * getAsyncTimeoutMultiplier();
         final boolean debugMode = false;
         final boolean sequentialGet = false;
         final Object sequentialGetLock = new Object();
@@ -186,7 +186,7 @@ public class ManagedAsyncResourceTest extends JerseyTest {
     public void testChatResource() throws InterruptedException {
         final WebTarget resourceTarget = target().path("chat");
         final int MAX_MESSAGES = 100;
-        final int LATCH_WAIT_TIMEOUT = 10;
+        final int LATCH_WAIT_TIMEOUT = 10 * getAsyncTimeoutMultiplier();
         final boolean debugMode = false;
         final boolean sequentialGet = false;
         final boolean sequentialPost = false;

@@ -3,7 +3,7 @@
 
     DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 
-    Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+    Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
 
     The contents of this file are subject to the terms of either the GNU
     General Public License Version 2 only ("GPL") or the Common Development
@@ -75,7 +75,7 @@
 
             <note>
                 <para>
-                    If you're not using Maven make sure to have also all the transitive dependencies (see &jersey-bean-validation;) on
+                    If you're not using Maven make sure to have also all the transitive dependencies (see &jersey.ext.bean-validation.deps.link;) on
                     the classpath.
                 </para>
             </note>
@@ -205,15 +205,6 @@
                 </listitem>
             </itemizedlist>
 
-            <tip>
-                <para>
-                    In the latest versions of Jersey, the old-style setter methods (<literal>set*</literal>) on
-                    &jersey.ext.ValidationConfig; are deprecated and replaced with methods that allow the fluent use of the API
-                    (e.g. <literal>ValidationConfig#messageInterpolator(MessageInterpolator)</literal>). Use of the new fluent methods
-                    is encouraged as the old setters will be removed from the API soon.
-                </para>
-            </tip>
-
             <example xml:id="bv.example.ValidationConfig">
                 <title>Using &lit.jersey.ext.ValidationConfig; to configure &lit.bv.Validator;.</title>
 
@@ -274,7 +265,9 @@ public class ValidationConfigurationContextResolver implements ContextResolver&l
         .register( ... );</programlisting>
 
                 <note>
-                    <para>This code snippet has been taken from &jersey.github.bv.example.path;.</para>
+                    <para>This code snippet has been taken from
+                        <link xlink:href='&jersey.github.examples.uri;/bean-validation-webapp'>Bean Validation example</link>.
+                    </para>
                 </note>
             </example>
         </para>
@@ -824,6 +817,6 @@ Server: Jetty(6.1.24)
         <title>Example</title>
 
         <para>To see a complete working example of using Bean Validation (JSR-349) with Jersey refer to the
-            &jersey.github.bv.example.path;.</para>
+            <link xlink:href='&jersey.github.examples.uri;/bean-validation-webapp'>Bean Validation Example</link>.</para>
     </section>
 </chapter>

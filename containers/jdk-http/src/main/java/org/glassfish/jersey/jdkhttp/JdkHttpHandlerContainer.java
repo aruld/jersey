@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -52,6 +52,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.ws.rs.core.Application;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriBuilder;
@@ -68,6 +69,8 @@ import org.glassfish.jersey.server.spi.Container;
 import org.glassfish.jersey.server.spi.ContainerLifecycleListener;
 import org.glassfish.jersey.server.spi.ContainerResponseWriter;
 
+import org.glassfish.hk2.api.ServiceLocator;
+
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -75,9 +78,10 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsExchange;
 
 /**
- * Container adapter between {@link HttpServer JDK HttpServer} and {@link ApplicationHandler Jersey application}.
+ * Jersey {@code Container} implementation based on Java SE {@link HttpServer}.
  *
  * @author Miroslav Fuksa (miroslav.fuksa at oracle.com)
+ * @author Marek Potociar (marek.potociar at oracle.com)
  */
 public class JdkHttpHandlerContainer implements HttpHandler, Container {
     private static final Logger LOGGER = Logger.getLogger(JdkHttpHandlerContainer.class.getName());
@@ -86,13 +90,22 @@ public class JdkHttpHandlerContainer implements HttpHandler, Container {
     private volatile ContainerLifecycleListener containerListener;
 
     /**
-     * Creates a new Container connected to given {@link ApplicationHandler Jersey application}.
+     * Create new lightweight Java SE HTTP server container.
      *
-     * @param appHandler Jersey application handler for which the container should be
-     *                   initialized.
+     * @param application JAX-RS / Jersey application to be deployed on the container.
      */
-    JdkHttpHandlerContainer(ApplicationHandler appHandler) {
-        this.appHandler = appHandler;
+    JdkHttpHandlerContainer(final Application application) {
+        this.appHandler = new ApplicationHandler(application);
+        this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
+    }
+
+    /**
+     * Create new lightweight Java SE HTTP server container.
+     *
+     * @param application JAX-RS / Jersey application to be deployed on the container.
+     */
+    JdkHttpHandlerContainer(final Application application, final ServiceLocator parentLocator) {
+        this.appHandler = new ApplicationHandler(application, null, parentLocator);
         this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
     }
 
@@ -133,28 +146,26 @@ public class JdkHttpHandlerContainer implements HttpHandler, Container {
          * TODO this is missing the user information component, how can this be obtained?
          */
         final boolean isSecure = exchange instanceof HttpsExchange;
-        String scheme = isSecure ? "https" : "http";
+        final String scheme = isSecure ? "https" : "http";
 
-        URI baseUri;
+        final URI baseUri;
         try {
-            List<String> hostHeader = exchange.getRequestHeaders().get("Host");
+            final List<String> hostHeader = exchange.getRequestHeaders().get("Host");
             if (hostHeader != null) {
-                StringBuilder sb = new StringBuilder(scheme);
-                sb.append("://").append(hostHeader.get(0)).append(decodedBasePath);
-                baseUri = new URI(sb.toString());
+                baseUri = new URI(scheme + "://" + hostHeader.get(0) + decodedBasePath);
             } else {
-                InetSocketAddress addr = exchange.getLocalAddress();
+                final InetSocketAddress addr = exchange.getLocalAddress();
                 baseUri = new URI(scheme, null, addr.getHostName(), addr.getPort(),
                         decodedBasePath, null, null);
             }
-        } catch (URISyntaxException ex) {
+        } catch (final URISyntaxException ex) {
             throw new IllegalArgumentException(ex);
         }
 
         final URI requestUri = baseUri.resolve(exchangeUri);
 
         final ResponseWriter responseWriter = new ResponseWriter(exchange);
-        ContainerRequest requestContext = new ContainerRequest(baseUri, requestUri,
+        final ContainerRequest requestContext = new ContainerRequest(baseUri, requestUri,
                 exchange.getRequestMethod(), getSecurityContext(exchange.getPrincipal(), isSecure),
                 new MapPropertiesDelegate());
         requestContext.setEntityStream(exchange.getRequestBody());
@@ -173,7 +184,7 @@ public class JdkHttpHandlerContainer implements HttpHandler, Container {
         return new SecurityContext() {
 
             @Override
-            public boolean isUserInRole(String role) {
+            public boolean isUserInRole(final String role) {
                 return false;
             }
 
@@ -205,12 +216,17 @@ public class JdkHttpHandlerContainer implements HttpHandler, Container {
     }
 
     @Override
-    public void reload(ResourceConfig configuration) {
+    public void reload(final ResourceConfig configuration) {
         containerListener.onShutdown(this);
         appHandler = new ApplicationHandler(configuration);
         containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
         containerListener.onReload(this);
         containerListener.onStartup(this);
+    }
+
+    @Override
+    public ApplicationHandler getApplicationHandler() {
+        return appHandler;
     }
 
     /**
@@ -231,7 +247,7 @@ public class JdkHttpHandlerContainer implements HttpHandler, Container {
         this.containerListener.onShutdown(this);
     }
 
-    private final static class ResponseWriter implements ContainerResponseWriter {
+    private static final class ResponseWriter implements ContainerResponseWriter {
 
         private final HttpExchange exchange;
         private final AtomicBoolean closed;
@@ -241,18 +257,18 @@ public class JdkHttpHandlerContainer implements HttpHandler, Container {
          *
          * @param exchange Exchange of the {@link HttpServer JDK Http Server}
          */
-        ResponseWriter(HttpExchange exchange) {
+        ResponseWriter(final HttpExchange exchange) {
             this.exchange = exchange;
             this.closed = new AtomicBoolean(false);
         }
 
         @Override
-        public OutputStream writeResponseStatusAndHeaders(long contentLength, ContainerResponse context)
+        public OutputStream writeResponseStatusAndHeaders(final long contentLength, final ContainerResponse context)
                 throws ContainerException {
             final MultivaluedMap<String, String> responseHeaders = context.getStringHeaders();
             final Headers serverHeaders = exchange.getResponseHeaders();
             for (final Map.Entry<String, List<String>> e : responseHeaders.entrySet()) {
-                for (String value : e.getValue()) {
+                for (final String value : e.getValue()) {
                     serverHeaders.add(e.getKey(), value);
                 }
             }
@@ -266,14 +282,14 @@ public class JdkHttpHandlerContainer implements HttpHandler, Container {
                     exchange.sendResponseHeaders(context.getStatus(),
                             getResponseLength(contentLength));
                 }
-            } catch (IOException ioe) {
+            } catch (final IOException ioe) {
                 throw new ContainerException("Error during writing out the response headers.", ioe);
             }
 
             return exchange.getResponseBody();
         }
 
-        private long getResponseLength(long contentLength) {
+        private long getResponseLength(final long contentLength) {
             if (contentLength == 0) {
                 return -1;
             }
@@ -284,20 +300,20 @@ public class JdkHttpHandlerContainer implements HttpHandler, Container {
         }
 
         @Override
-        public boolean suspend(long timeOut, TimeUnit timeUnit, TimeoutHandler timeoutHandler) {
-            throw new UnsupportedOperationException("Method suspend is not support by the container.");
+        public boolean suspend(final long timeOut, final TimeUnit timeUnit, final TimeoutHandler timeoutHandler) {
+            throw new UnsupportedOperationException("Method suspend is not supported by the container.");
         }
 
         @Override
-        public void setSuspendTimeout(long timeOut, TimeUnit timeUnit) throws IllegalStateException {
-            throw new UnsupportedOperationException("Method suspend is not support by the container.");
+        public void setSuspendTimeout(final long timeOut, final TimeUnit timeUnit) throws IllegalStateException {
+            throw new UnsupportedOperationException("Method setSuspendTimeout is not supported by the container.");
         }
 
         @Override
-        public void failure(Throwable error) {
+        public void failure(final Throwable error) {
             try {
                 exchange.sendResponseHeaders(500, getResponseLength(0));
-            } catch (IOException e) {
+            } catch (final IOException e) {
                 LOGGER.log(Level.WARNING, "Unable to send a failure response.", e);
             } finally {
                 commit();
@@ -322,7 +338,7 @@ public class JdkHttpHandlerContainer implements HttpHandler, Container {
          *
          * @param error throwable to be re-thrown
          */
-        private void rethrow(Throwable error) {
+        private void rethrow(final Throwable error) {
             if (error instanceof RuntimeException) {
                 throw (RuntimeException) error;
             } else {

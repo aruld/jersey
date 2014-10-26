@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -42,6 +42,8 @@ package org.glassfish.jersey.client;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
@@ -65,18 +67,21 @@ import javax.ws.rs.ext.WriterInterceptor;
 import org.glassfish.jersey.client.internal.LocalizationMessages;
 import org.glassfish.jersey.internal.MapPropertiesDelegate;
 import org.glassfish.jersey.internal.PropertiesDelegate;
+import org.glassfish.jersey.internal.inject.ServiceLocatorSupplier;
 import org.glassfish.jersey.internal.util.PropertiesHelper;
 import org.glassfish.jersey.message.MessageBodyWorkers;
 import org.glassfish.jersey.message.internal.OutboundMessageContext;
 
-import com.google.common.base.Preconditions;
+import org.glassfish.hk2.api.ServiceLocator;
+
+import jersey.repackaged.com.google.common.base.Preconditions;
 
 /**
  * Jersey client request context.
  *
  * @author Marek Potociar (marek.potociar at oracle.com)
  */
-public class ClientRequest extends OutboundMessageContext implements ClientRequestContext {
+public class ClientRequest extends OutboundMessageContext implements ClientRequestContext, ServiceLocatorSupplier {
     // Request-scoped configuration instance
     private final ClientConfig clientConfig;
     // Request-scoped properties delegate
@@ -97,6 +102,8 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
     private Iterable<WriterInterceptor> writerInterceptors;
     // reader interceptors used to write the request
     private Iterable<ReaderInterceptor> readerInterceptors;
+    // do not add user-agent header (if not directly set) to the request.
+    private boolean ignoreUserAgent;
 
     private static final Logger LOGGER = Logger.getLogger(ClientRequest.class.getName());
 
@@ -108,7 +115,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      * @param propertiesDelegate properties delegate.
      */
     protected ClientRequest(
-            URI requestUri, ClientConfig clientConfig, PropertiesDelegate propertiesDelegate) {
+            final URI requestUri, final ClientConfig clientConfig, final PropertiesDelegate propertiesDelegate) {
         clientConfig.checkClient();
 
         this.requestUri = requestUri;
@@ -121,7 +128,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param original original instance.
      */
-    public ClientRequest(ClientRequest original) {
+    public ClientRequest(final ClientRequest original) {
         super(original);
         this.requestUri = original.requestUri;
         this.httpMethod = original.httpMethod;
@@ -131,6 +138,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
         this.readerInterceptors = original.readerInterceptors;
         this.writerInterceptors = original.writerInterceptors;
         this.propertiesDelegate = new MapPropertiesDelegate(original.propertiesDelegate);
+        this.ignoreUserAgent = original.ignoreUserAgent;
     }
 
     /**
@@ -195,7 +203,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
     }
 
     @Override
-    public Object getProperty(String name) {
+    public Object getProperty(final String name) {
         return propertiesDelegate.getProperty(name);
     }
 
@@ -205,12 +213,12 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
     }
 
     @Override
-    public void setProperty(String name, Object object) {
+    public void setProperty(final String name, final Object object) {
         propertiesDelegate.setProperty(name, object);
     }
 
     @Override
-    public void removeProperty(String name) {
+    public void removeProperty(final String name) {
         propertiesDelegate.removeProperty(name);
     }
 
@@ -238,7 +246,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
     }
 
     @Override
-    public void setUri(URI uri) {
+    public void setUri(final URI uri) {
         this.requestUri = uri;
     }
 
@@ -248,7 +256,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
     }
 
     @Override
-    public void setMethod(String method) {
+    public void setMethod(final String method) {
         this.httpMethod = method;
     }
 
@@ -258,7 +266,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
     }
 
     @Override
-    public void abortWith(Response response) {
+    public void abortWith(final Response response) {
         this.abortResponse = response;
     }
 
@@ -304,7 +312,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param workers message body workers.
      */
-    public void setWorkers(MessageBodyWorkers workers) {
+    public void setWorkers(final MessageBodyWorkers workers) {
         this.workers = workers;
     }
 
@@ -313,7 +321,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param types accepted types to be added.
      */
-    public void accept(MediaType... types) {
+    public void accept(final MediaType... types) {
         getHeaders().addAll(HttpHeaders.ACCEPT, (Object[]) types);
     }
 
@@ -322,7 +330,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param types accepted types to be added.
      */
-    public void accept(String... types) {
+    public void accept(final String... types) {
         getHeaders().addAll(HttpHeaders.ACCEPT, (Object[]) types);
     }
 
@@ -331,7 +339,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param locales accepted languages to be added.
      */
-    public void acceptLanguage(Locale... locales) {
+    public void acceptLanguage(final Locale... locales) {
         getHeaders().addAll(HttpHeaders.ACCEPT_LANGUAGE, (Object[]) locales);
     }
 
@@ -340,7 +348,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param locales accepted languages to be added.
      */
-    public void acceptLanguage(String... locales) {
+    public void acceptLanguage(final String... locales) {
         getHeaders().addAll(HttpHeaders.ACCEPT_LANGUAGE, (Object[]) locales);
     }
 
@@ -349,7 +357,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param cookie cookie to be added.
      */
-    public void cookie(Cookie cookie) {
+    public void cookie(final Cookie cookie) {
         getHeaders().add(HttpHeaders.COOKIE, cookie);
     }
 
@@ -358,7 +366,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param cacheControl cache control entry to be added.
      */
-    public void cacheControl(CacheControl cacheControl) {
+    public void cacheControl(final CacheControl cacheControl) {
         getHeaders().add(HttpHeaders.CACHE_CONTROL, cacheControl);
     }
 
@@ -367,7 +375,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param encoding message encoding to be set.
      */
-    public void encoding(String encoding) {
+    public void encoding(final String encoding) {
         if (encoding == null) {
             getHeaders().remove(HttpHeaders.CONTENT_ENCODING);
         } else {
@@ -380,7 +388,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param language message language to be set.
      */
-    public void language(String language) {
+    public void language(final String language) {
         if (language == null) {
             getHeaders().remove(HttpHeaders.CONTENT_LANGUAGE);
         } else {
@@ -393,7 +401,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param language message language to be set.
      */
-    public void language(Locale language) {
+    public void language(final Locale language) {
         if (language == null) {
             getHeaders().remove(HttpHeaders.CONTENT_LANGUAGE);
         } else {
@@ -406,7 +414,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param type message content type to be set.
      */
-    public void type(MediaType type) {
+    public void type(final MediaType type) {
         setMediaType(type);
     }
 
@@ -415,7 +423,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param type message content type to be set.
      */
-    public void type(String type) {
+    public void type(final String type) {
         type(type == null ? null : MediaType.valueOf(type));
     }
 
@@ -425,7 +433,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      * @param variant message content content variant (type, language and encoding)
      *                to be set.
      */
-    public void variant(Variant variant) {
+    public void variant(final Variant variant) {
         if (variant == null) {
             type((MediaType) null);
             language((String) null);
@@ -452,7 +460,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      *
      * @param async True if the request is asynchronous; false otherwise.
      */
-    void setAsynchronous(boolean async) {
+    void setAsynchronous(final boolean async) {
         asynchronous = async;
     }
 
@@ -503,11 +511,23 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
                         getEntityStream(),
                         writerInterceptors);
                 setEntityStream(entityStream);
-            } catch (ConnectException ce) {
+            } catch (final ConnectException ce) {
                 // MessageBodyWorkers.writeTo() produces more general IOException, but we are only interested in specifying if
                 // the failure was caused by connection problems or by other circumstances
                 connectionFailed = true;
                 throw ce;
+            } catch (final SocketTimeoutException e) {
+                // if MessageBodyWorkers.writeTo() fails because of non-routable target, SocketTimeOutException is thrown.
+                // In that case, exception is rethrown and the connectionFailed flag is set to prevent the attempt to commit.
+                // Calling commitStream() would lead to another wait time and the final timeout time would be twice as long
+                // as described in JERSEY-1984. Depending on a system and configuration, NoRouteToHostException may be thrown
+                // instead of SocketTimeoutException (see below).
+                connectionFailed = true;
+                throw e;
+            } catch (final NoRouteToHostException e) {
+                // to cover all the cases, also NoRouteToHostException is to be handled similarly.
+                connectionFailed = true;
+                throw e;
             }
         } finally {
             // in case we've seen the ConnectException, we won't try to close/commit stream as this would produce just
@@ -518,13 +538,13 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
                 if (entityStream != null) {
                     try {
                         entityStream.close();
-                    } catch (IOException ex) {
+                    } catch (final IOException ex) {
                         LOGGER.log(Level.FINE, LocalizationMessages.ERROR_CLOSING_OUTPUT_STREAM(), ex);
                     }
                 }
                 try {
                     commitStream();
-                } catch (IOException e) {
+                } catch (final IOException e) {
                     LOGGER.log(Level.SEVERE, LocalizationMessages.ERROR_COMMITTING_OUTPUT_STREAM(), e);
                 }
             }
@@ -542,7 +562,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
         }
     }
 
-    private MediaType getMediaType(List<MediaType> mediaTypes) {
+    private MediaType getMediaType(final List<MediaType> mediaTypes) {
         if (mediaTypes.isEmpty()) {
             return MediaType.APPLICATION_OCTET_STREAM_TYPE;
         } else {
@@ -558,7 +578,7 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      * Set writer interceptors for this request.
      * @param writerInterceptors Writer interceptors in the interceptor execution order.
      */
-    void setWriterInterceptors(Iterable<WriterInterceptor> writerInterceptors) {
+    void setWriterInterceptors(final Iterable<WriterInterceptor> writerInterceptors) {
         this.writerInterceptors = writerInterceptors;
     }
 
@@ -582,7 +602,30 @@ public class ClientRequest extends OutboundMessageContext implements ClientReque
      * Set reader interceptors for this request.
      * @param readerInterceptors Reader interceptors in the interceptor execution order.
      */
-    void setReaderInterceptors(Iterable<ReaderInterceptor> readerInterceptors) {
+    void setReaderInterceptors(final Iterable<ReaderInterceptor> readerInterceptors) {
         this.readerInterceptors = readerInterceptors;
+    }
+
+    @Override
+    public ServiceLocator getServiceLocator() {
+        return getClientRuntime().getServiceLocator();
+    }
+
+    /**
+     * Indicates whether the User-Agent header should be omitted if not directly set to the map of headers.
+     *
+     * @return {@code true} if the header should be omitted, {@code false} otherwise.
+     */
+    public boolean ignoreUserAgent() {
+        return ignoreUserAgent;
+    }
+
+    /**
+     * Indicates whether the User-Agent header should be omitted if not directly set to the map of headers.
+     *
+     * @param ignore {@code true} if the header should be omitted, {@code false} otherwise.
+     */
+    public void ignoreUserAgent(final boolean ignore) {
+        this.ignoreUserAgent = ignore;
     }
 }

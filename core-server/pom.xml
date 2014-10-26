@@ -3,7 +3,7 @@
 
     DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 
-    Copyright (c) 2010-2013 Oracle and/or its affiliates. All rights reserved.
+    Copyright (c) 2010-2014 Oracle and/or its affiliates. All rights reserved.
 
     The contents of this file are subject to the terms of either the GNU
     General Public License Version 2 only ("GPL") or the Common Development
@@ -46,7 +46,7 @@
     <parent>
         <groupId>org.glassfish.jersey</groupId>
         <artifactId>project</artifactId>
-        <version>2.5.1-SNAPSHOT</version>
+        <version>2.14-SNAPSHOT</version>
     </parent>
 
     <groupId>org.glassfish.jersey.core</groupId>
@@ -57,6 +57,13 @@
     <description>Jersey core server implementation</description>
 
     <build>
+        <testResources>
+          <testResource>
+            <directory>${basedir}/src/test/resources</directory>
+            <filtering>true</filtering>
+          </testResource>
+        </testResources>
+
         <plugins>
             <plugin>
                 <groupId>com.sun.istack</groupId>
@@ -76,32 +83,84 @@
                 <configuration>
                     <instructions>
                         <!-- Note: When you're changing these properties change them also in bundles/jaxrs-ri/pom.xml. -->
-                        <Export-Package>org.glassfish.jersey.server.*;version=${project.version},com.sun.research.ws.wadl.*;version=${project.version}</Export-Package>
-                        <Import-Package>*</Import-Package>
+                        <Export-Package>
+                            org.glassfish.jersey.server.*;version=${project.version},
+                            com.sun.research.ws.wadl.*;version=${project.version}
+                        </Export-Package>
+                        <Import-Package>
+                            !org.objectweb.asm.*,
+                            *
+                        </Import-Package>
                     </instructions>
                     <unpackBundle>true</unpackBundle>
                 </configuration>
             </plugin>
             <plugin>
+                <!--
+                Note: If you need to re-generate WADL classes do so by invoking:
+
+                    mvn com.sun.tools.xjc.maven2:maven-jaxb-plugin:generate
+                -->
                 <groupId>com.sun.tools.xjc.maven2</groupId>
                 <artifactId>maven-jaxb-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>generate</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>javax.xml.bind</groupId>
+                        <artifactId>jaxb-api</artifactId>
+                        <version>${jaxb.api.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>com.sun.xml.bind</groupId>
+                        <artifactId>jaxb-impl</artifactId>
+                        <version>${jaxb.ri.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>com.sun.xml.bind</groupId>
+                        <artifactId>jaxb-xjc</artifactId>
+                        <version>${jaxb.ri.version}</version>
+                    </dependency>
+                </dependencies>
                 <configuration>
+                    <generateDirectory>${basedir}/src/main/java</generateDirectory>
                     <generatePackage>com.sun.research.ws.wadl</generatePackage>
                     <catalog>${basedir}/etc/catalog.xml</catalog>
                     <schemaDirectory>${basedir}/etc</schemaDirectory>
                     <includeSchemas>
                         <includeSchema>wadl.xsd</includeSchema>
                     </includeSchemas>
+                    <removeOldOutput>true</removeOldOutput>
                 </configuration>
             </plugin>
-        </plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <inherited>true</inherited>
+                <configuration>
+                    <artifactSet>
+                        <includes>
+                            <include>org.ow2.asm:asm-debug-all:*</include>
+                        </includes>
+                    </artifactSet>
+                    <relocations>
+                        <relocation>
+                            <pattern>org.objectweb.asm</pattern>
+                            <shadedPattern>${jersey.repackaged.prefix}.org.objectweb.asm</shadedPattern>
+                        </relocation>
+                    </relocations>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>${surefire.security.argline}</argLine>
+                    <!-- Execute test classes in parallel - 1 thread per CPU core. -->
+                    <parallel>classesAndMethods</parallel>
+                    <perCoreThreadCount>true</perCoreThreadCount>
+                    <threadCount>1</threadCount>
+                </configuration>
+            </plugin>
+         </plugins>
     </build>
 
     <dependencies>
@@ -123,20 +182,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
             <groupId>javax.annotation</groupId>
             <artifactId>javax.annotation-api</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -151,6 +198,11 @@
             <groupId>org.glassfish.hk2</groupId>
             <artifactId>hk2-locator</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm-debug-all</artifactId>
+            <optional>true</optional>
+        </dependency>
 
         <dependency>
             <groupId>javax.validation</groupId>
@@ -162,6 +214,40 @@
             <artifactId>junit</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.jboss</groupId>
+            <artifactId>jboss-vfs</artifactId>
+            <version>3.2.6.Final</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <profiles>
+        <profile>
+            <id>securityOff</id>
+            <properties>
+                <surefire.security.argline />
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <inherited>true</inherited>
+                        <configuration combine.self="append">
+                            <excludes>
+                                <exclude>**/SecurityManagerConfiguredTest.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+    <properties>
+        <surefire.security.argline>-Djava.security.manager -Djava.security.policy=${project.build.directory}/test-classes/server.policy</surefire.security.argline>
+    </properties>
 
 </project>

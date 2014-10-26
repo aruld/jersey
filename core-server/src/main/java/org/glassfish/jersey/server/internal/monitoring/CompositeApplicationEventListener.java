@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -37,7 +37,6 @@
  * only if the new code is made subject to such option by the copyright
  * holder.
  */
-
 package org.glassfish.jersey.server.internal.monitoring;
 
 import java.util.List;
@@ -47,39 +46,39 @@ import org.glassfish.jersey.server.monitoring.ApplicationEventListener;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
 
-import com.google.common.collect.Lists;
+import jersey.repackaged.com.google.common.collect.Lists;
 
 /**
  * {@link ApplicationEventListener application event listener} that aggregates more event listeners into one.
- * Calling listener methods on this listener will cause calling methods on all aggregated listener.
+ * Calling listener methods on this listener will cause calling methods on all aggregated listeners.
  *
  * @author Miroslav Fuksa (miroslav.fuksa at oracle.com)
  */
 public class CompositeApplicationEventListener implements ApplicationEventListener {
 
-    private final List<ApplicationEventListener> applicationEventListeners;
+    private final Iterable<ApplicationEventListener> applicationEventListeners;
 
     /**
      * Creates a new instance of composite event listener.
      *
      * @param applicationEventListeners List of application event listener that should be aggregated.
      */
-    public CompositeApplicationEventListener(List<ApplicationEventListener> applicationEventListeners) {
+    public CompositeApplicationEventListener(final Iterable<ApplicationEventListener> applicationEventListeners) {
         this.applicationEventListeners = applicationEventListeners;
     }
 
     @Override
-    public void onEvent(ApplicationEvent event) {
-        for (ApplicationEventListener applicationEventListener : applicationEventListeners) {
+    public void onEvent(final ApplicationEvent event) {
+        for (final ApplicationEventListener applicationEventListener : applicationEventListeners) {
             applicationEventListener.onEvent(event);
         }
     }
 
     @Override
-    public RequestEventListener onRequest(RequestEvent requestEvent) {
-        List<RequestEventListener> requestEventListeners = Lists.newArrayList();
-        for (ApplicationEventListener applicationEventListener : applicationEventListeners) {
-            RequestEventListener requestEventListener = applicationEventListener.onRequest(requestEvent);
+    public RequestEventListener onRequest(final RequestEvent requestEvent) {
+        final List<RequestEventListener> requestEventListeners = Lists.newArrayList();
+        for (final ApplicationEventListener applicationEventListener : applicationEventListeners) {
+            final RequestEventListener requestEventListener = applicationEventListener.onRequest(requestEvent);
             if (requestEventListener != null) {
                 requestEventListeners.add(requestEventListener);
             }

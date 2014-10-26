@@ -3,7 +3,7 @@
 
     DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 
-    Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+    Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
 
     The contents of this file are subject to the terms of either the GNU
     General Public License Version 2 only ("GPL") or the Common Development
@@ -40,7 +40,12 @@
     holder.
 
 -->
-<!DOCTYPE chapter [<!ENTITY % ents SYSTEM "jersey.ent" > %ents; ]>
+<!DOCTYPE chapter [
+    <!ENTITY % ents SYSTEM "jersey.ent" > %ents;
+    <!ENTITY jersey.github.ef.example.link "<link xlink:href='&jersey.github.examples.uri;/entity-filtering'>Entity Filtering example</link>">
+    <!ENTITY jersey.github.ef.security.example.link "<link xlink:href='&jersey.github.examples.uri;/entity-filtering-security'>Entity Filtering example (with security annotations)</link>">
+]>
+
 <chapter xmlns="http://docbook.org/ns/docbook"
          version="5.0"
          xml:lang="en"
@@ -79,6 +84,9 @@
             <listitem>
                 <para><xref linkend="ef.security.annotations"/></para>
             </listitem>
+            <listitem>
+                <para><xref linkend="ef.selectable.annotations"/></para>
+            </listitem>
         </itemizedlist>
 
         as well as some more complex ones.
@@ -111,12 +119,12 @@
             <note>
                 <para>
                     If you're not using Maven make sure to have also all the transitive dependencies
-                    (see &jersey-entity-filtering;) on the classpath.
+                    (see &jersey.ext.entity-filtering.deps.link;) on the classpath.
                 </para>
             </note>
         </para>
         <para>
-            The entity-filtering extension module provides two &lit.jaxrs.core.Feature;s which you can register into server/client
+            The entity-filtering extension module provides three &lit.jaxrs.core.Feature;s which you can register into server/client
             runtime in prior to use Entity Filtering in an application:
 
             <itemizedlist>
@@ -131,6 +139,10 @@
                     <para>&jersey.message.filtering.SecurityEntityFilteringFeature;</para>
                     <para>Filtering based on security (<literal>javax.annotation.security</literal>) and entity-filtering
                         annotations.</para>
+                </listitem>
+                <listitem>
+                    <para>&jersey.message.filtering.SelectableEntityFilteringFeature;</para>
+                    <para>Filtering based on dynamic and configurable query parameters.</para>
                 </listitem>
             </itemizedlist>
 
@@ -187,6 +199,18 @@
     // Further configuration of ResourceConfig.
     .register( ... );</programlisting>
             </example>
+
+            <example xml:id="ef.example.server.selectable.registration">
+                <title>Registering and configuring entity-filtering feature based on dynamic and configurable query parameters.</title>
+
+                <programlisting language="java" linenumbering="numbered">new ResourceConfig()
+    // Set query parameter name for dynamic filtering
+    .property(SelectableEntityFilteringFeature.QUERY_PARAM_NAME, "select")
+    // Register the SelectableEntityFilteringFeature.
+    .register(SelectableEntityFilteringFeature.class)
+    // Further configuration of ResourceConfig.
+    .register( ... );</programlisting>
+            </example>
         </para>
         <para>
             Use similar steps to register entity-filtering on client:
@@ -217,7 +241,7 @@ final Client client = ClientClientBuilder.newClient(config);
             In the next section the entity-filtering features will be illustrated on a project-tracking application that
             contains three classes in it's domain model and few resources (only <literal>Project</literal> resource will be
             shown in this chapter). The full source code for the example application can be found in Jersey
-            &jersey.github.ef.example.path;.
+            &jersey.github.ef.example.link;.
         </para>
 
         <para>
@@ -326,7 +350,7 @@ public class ProjectsResource {
             </itemizedlist>
 
             An example of entity-filtering annotation applicable to a class, field or method can be seen in
-            <xref linkend="ef.annotations.sample.annotation"/> bellow.
+            <xref linkend="ef.annotations.sample.annotation"/> below.
 
             <example xml:id="ef.annotations.sample.annotation">
                     <title>ProjectDetailedView</title>
@@ -501,7 +525,7 @@ public @interface ProjectDetailedView {
 
             <para>
                 To pass entity-filtering annotations via &jaxrs.core.Response; returned from a resource method you can leverage the
-                <link xlink:href='&jax-rs.javadoc.path;/core/Response.ResponseBuilder.html#entity(java.lang.Object, java.lang.annotation.Annotation[])'>Response.ResponseBuilder#entity(Object, Annotation[])</link>
+                <link xlink:href='&jaxrs.javadoc.uri;/core/Response.ResponseBuilder.html#entity(java.lang.Object, java.lang.annotation.Annotation[])'>Response.ResponseBuilder#entity(Object, Annotation[])</link>
                 method. The next example illustrates this approach. You will also see why every custom entity-filtering
                 annotation should contain a factory for creating instances of the annotation.
 
@@ -711,6 +735,46 @@ public class ClientsResource {
         </para>
     </section>
 
+    <section xml:id="ef.selectable.annotations">
+        <title>Entity Filtering based on dynamic and configurable query parameters</title>
+        <para>
+            Filtering the content sent to the client (or server) dynamically based on query parameters is another commonly
+            required use case. By registering &jersey.message.filtering.SelectableEntityFilteringFeature; you can
+            leverage the Jersey Entity Filtering facility in connection with query parameters exactly the same way as you would with custom
+            entity-filtering annotations described in previous chapters.
+        </para>
+
+        <para>
+            <example>
+                    <title>Sever - Query Parameter driven entity-filtering</title>
+
+                    <programlisting language="java" linenumbering="numbered">@XmlRootElement
+public class Address {
+
+    private String streetAddress;
+
+    private String region;
+
+    private PhoneNumber phoneNumber;
+}</programlisting>
+                </example>
+        </para>
+        <para>
+            Query parameters are supported in comma delimited "dot notation" style similar to <literal>BeanInfo</literal> objects
+            and Spring path expressions. As an example, the following URL:
+            <literal>http://jersey.example.com/addresses/51234?select=region,streetAddress</literal> may render only the address's
+            region and street address properties as in the following example:
+        </para>
+
+        <example>
+            <programlisting language="xml" linenumbering="numbered">{
+   "region" : "CA",
+   "streetAddress" : "1234 Fake St."
+}</programlisting>
+    </example>
+
+    </section>
+
     <section xml:id="ef.custom.annotations">
         <title>Defining custom handling for entity-filtering annotations</title>
 
@@ -853,10 +917,10 @@ public class FilteringMoxyJsonProvider extends ConfigurableMoxyJsonProvider {
 
             <itemizedlist>
                 <listitem>
-                    <para>&jersey.github.ef.example.path;</para>
+                    <para>&jersey.github.ef.example.link;</para>
                 </listitem>
                 <listitem>
-                    <para>&jersey.github.ef.security.example.path;</para>
+                    <para>&jersey.github.ef.security.example.link;</para>
                 </listitem>
             </itemizedlist>
         </para>

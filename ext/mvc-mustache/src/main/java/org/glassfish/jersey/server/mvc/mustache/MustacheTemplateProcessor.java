@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -44,9 +44,11 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
+import java.nio.charset.Charset;
 
 import javax.ws.rs.core.Configuration;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedMap;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -105,7 +107,8 @@ final class MustacheTemplateProcessor extends AbstractTemplateProcessor<Mustache
 
     @Override
     public void writeTo(final Mustache mustache, final Viewable viewable, final MediaType mediaType,
-                        final OutputStream out) throws IOException {
-        mustache.execute(new OutputStreamWriter(out), viewable.getModel()).flush();
+                        final MultivaluedMap<String, Object> httpHeaders, final OutputStream out) throws IOException {
+        Charset encoding = setContentType(mediaType, httpHeaders);
+        mustache.execute(new OutputStreamWriter(out, encoding), viewable.getModel()).flush();
     }
 }

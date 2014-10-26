@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -45,6 +45,8 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Iterator;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.ProcessingException;
@@ -59,9 +61,12 @@ import javax.ws.rs.ext.ReaderInterceptorContext;
 
 import org.glassfish.jersey.internal.LocalizationMessages;
 import org.glassfish.jersey.internal.PropertiesDelegate;
+import org.glassfish.jersey.internal.inject.ServiceLocatorSupplier;
 import org.glassfish.jersey.message.MessageBodyWorkers;
 
-import com.google.common.collect.Lists;
+import org.glassfish.hk2.api.ServiceLocator;
+
+import jersey.repackaged.com.google.common.collect.Lists;
 
 /**
  * Represents reader interceptor chain executor for both client and server side.
@@ -73,7 +78,9 @@ import com.google.common.collect.Lists;
  * @author Jakub Podlesak (jakub.podlesak at oracle.com)
  */
 public final class ReaderInterceptorExecutor extends InterceptorExecutor<ReaderInterceptor>
-        implements ReaderInterceptorContext {
+        implements ReaderInterceptorContext, ServiceLocatorSupplier {
+
+    private final static Logger LOGGER = Logger.getLogger(ReaderInterceptorExecutor.class.getName());
 
     private InputStream inputStream;
     private final MultivaluedMap<String, String> headers;
@@ -82,6 +89,8 @@ public final class ReaderInterceptorExecutor extends InterceptorExecutor<ReaderI
     private int processedCount;
     private final MessageBodyWorkers workers;
     private final boolean translateNce;
+
+    private final ServiceLocator serviceLocator;
 
     /**
      * Constructs a new executor to read given type from provided {@link InputStream entityStream}.
@@ -96,24 +105,30 @@ public final class ReaderInterceptorExecutor extends InterceptorExecutor<ReaderI
      * @param headers            mutable message headers.
      * @param propertiesDelegate request-scoped properties delegate.
      * @param inputStream        entity input stream.
-     * @param workers            {@link MessageBodyWorkers Message body workers}.
+     * @param workers            {@link org.glassfish.jersey.message.MessageBodyWorkers Message body workers}.
      * @param readerInterceptors Reader interceptor that are to be used to intercept the reading of an entity.
      *                           The interceptors will be executed in the same order as given in this parameter.
-     * @param translateNce       if {@code true}, the {@link NoContentException} thrown by a selected message body
-     *                           reader will be translated into a {@link BadRequestException} as required by
-     *                           JAX-RS specification on the server side.
+     * @param translateNce       if {@code true}, the {@link javax.ws.rs.core.NoContentException} thrown by a selected message body
+     *                           reader will be translated into a {@link javax.ws.rs.BadRequestException} as required by
+     * @param serviceLocator Service locator.
      */
-    public ReaderInterceptorExecutor(Class<?> rawType, Type type, Annotation[] annotations, MediaType mediaType,
-                                     MultivaluedMap<String, String> headers, PropertiesDelegate propertiesDelegate,
-                                     InputStream inputStream, MessageBodyWorkers workers,
-                                     Iterable<ReaderInterceptor> readerInterceptors,
-                                     boolean translateNce) {
+    public ReaderInterceptorExecutor(final Class<?> rawType, final Type type,
+                                     final Annotation[] annotations,
+                                     final MediaType mediaType,
+                                     final MultivaluedMap<String, String> headers,
+                                     final PropertiesDelegate propertiesDelegate,
+                                     final InputStream inputStream,
+                                     final MessageBodyWorkers workers,
+                                     final Iterable<ReaderInterceptor> readerInterceptors,
+                                     final boolean translateNce,
+                                     final ServiceLocator serviceLocator) {
 
         super(rawType, type, annotations, mediaType, propertiesDelegate);
         this.headers = headers;
         this.inputStream = inputStream;
         this.workers = workers;
         this.translateNce = translateNce;
+        this.serviceLocator = serviceLocator;
 
         final List<ReaderInterceptor> effectiveInterceptors = Lists.newArrayList(readerInterceptors);
         effectiveInterceptors.add(new TerminalReaderInterceptor());
@@ -142,13 +157,14 @@ public final class ReaderInterceptorExecutor extends InterceptorExecutor<ReaderI
             traceAfter(interceptor, MsgTraceEvent.RI_AFTER);
         }
     }
+
     @Override
     public InputStream getInputStream() {
         return this.inputStream;
     }
 
     @Override
-    public void setInputStream(InputStream is) {
+    public void setInputStream(final InputStream is) {
         this.inputStream = is;
 
     }
@@ -167,6 +183,11 @@ public final class ReaderInterceptorExecutor extends InterceptorExecutor<ReaderI
         return processedCount;
     }
 
+    @Override
+    public ServiceLocator getServiceLocator() {
+        return serviceLocator;
+    }
+
     /**
      * Terminal reader interceptor which choose the appropriate {@link MessageBodyReader}
      * and reads the entity from the input stream. The order of actions is the following: <br>
@@ -177,7 +198,7 @@ public final class ReaderInterceptorExecutor extends InterceptorExecutor<ReaderI
 
         @Override
         @SuppressWarnings("unchecked")
-        public Object aroundReadFrom(ReaderInterceptorContext context) throws IOException, WebApplicationException {
+        public Object aroundReadFrom(final ReaderInterceptorContext context) throws IOException, WebApplicationException {
             processedCount--; //this is not regular interceptor -> count down
 
             traceBefore(null, MsgTraceEvent.RI_BEFORE);
@@ -204,6 +225,8 @@ public final class ReaderInterceptorExecutor extends InterceptorExecutor<ReaderI
                     if (input.isEmpty() && !context.getHeaders().containsKey(HttpHeaders.CONTENT_TYPE)) {
                         return null;
                     } else {
+                        LOGGER.log(Level.FINE, LocalizationMessages.ERROR_NOTFOUND_MESSAGEBODYREADER(context.getMediaType(),
+                                context.getType(), context.getGenericType()));
                         throw new MessageBodyProviderNotFoundException(LocalizationMessages.ERROR_NOTFOUND_MESSAGEBODYREADER(
                                 context.getMediaType(), context.getType(), context.getGenericType()));
                     }
@@ -221,27 +244,91 @@ public final class ReaderInterceptorExecutor extends InterceptorExecutor<ReaderI
         }
 
         @SuppressWarnings("unchecked")
-        private Object invokeReadFrom(ReaderInterceptorContext context, MessageBodyReader bodyReader, EntityInputStream input)
-                throws WebApplicationException, IOException {
+        private Object invokeReadFrom(final ReaderInterceptorContext context, final MessageBodyReader reader,
+                                      final EntityInputStream input) throws WebApplicationException, IOException {
 
             final TracingLogger tracingLogger = getTracingLogger();
             final long timestamp = tracingLogger.timestamp(MsgTraceEvent.MBR_READ_FROM);
+            final UnCloseableInputStream stream = new UnCloseableInputStream(input, reader);
+
             try {
-                Object entity;
+                final Object entity;
                 if (translateNce) {
                     try {
-                        entity = bodyReader.readFrom(context.getType(), context.getGenericType(), context.getAnnotations(),
-                                context.getMediaType(), context.getHeaders(), input);
-                    } catch (NoContentException ex) {
+                        entity = reader.readFrom(context.getType(), context.getGenericType(), context.getAnnotations(),
+                                context.getMediaType(), context.getHeaders(), stream);
+                    } catch (final NoContentException ex) {
                         throw new BadRequestException(ex);
                     }
                 } else {
-                    entity = bodyReader.readFrom(context.getType(), context.getGenericType(), context.getAnnotations(),
-                            context.getMediaType(), context.getHeaders(), input);
+                    entity = reader.readFrom(context.getType(), context.getGenericType(), context.getAnnotations(),
+                            context.getMediaType(), context.getHeaders(), stream);
                 }
                 return entity;
             } finally {
-                tracingLogger.logDuration(MsgTraceEvent.MBR_READ_FROM, timestamp, bodyReader);
+                tracingLogger.logDuration(MsgTraceEvent.MBR_READ_FROM, timestamp, reader);
+            }
+        }
+    }
+
+    /**
+     * {@link javax.ws.rs.ext.MessageBodyReader}s should not close the given {@link java.io.InputStream stream}. This input
+     * stream makes sure that the stream is not closed even if MBR tries to do it.
+     */
+    private static class UnCloseableInputStream extends InputStream {
+
+        private final InputStream original;
+        private final MessageBodyReader reader;
+
+        private UnCloseableInputStream(final InputStream original, final MessageBodyReader reader) {
+            this.original = original;
+            this.reader = reader;
+        }
+
+        @Override
+        public int read() throws IOException {
+            return original.read();
+        }
+
+        @Override
+        public int read(final byte[] b) throws IOException {
+            return original.read(b);
+        }
+
+        @Override
+        public int read(final byte[] b, final int off, final int len) throws IOException {
+            return original.read(b, off, len);
+        }
+
+        @Override
+        public long skip(final long l) throws IOException {
+            return original.skip(l);
+        }
+
+        @Override
+        public int available() throws IOException {
+            return original.available();
+        }
+
+        @Override
+        public synchronized void mark(final int i) {
+            original.mark(i);
+        }
+
+        @Override
+        public synchronized void reset() throws IOException {
+            original.reset();
+        }
+
+        @Override
+        public boolean markSupported() {
+            return original.markSupported();
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.log(Level.FINE, LocalizationMessages.MBR_TRYING_TO_CLOSE_STREAM(reader.getClass()));
             }
         }
     }

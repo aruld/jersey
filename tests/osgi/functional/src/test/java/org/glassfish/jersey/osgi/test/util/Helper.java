@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2010-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -86,7 +86,7 @@ public class Helper {
             try {
                 return Integer.parseInt(varValue);
             } catch (NumberFormatException e) {
-                // will return default value bellow
+                // will return default value below
             }
         }
         return defaultValue;
@@ -155,9 +155,6 @@ public class Helper {
                 // javax.annotation has to go first!
                 mavenBundle().groupId("javax.annotation").artifactId("javax.annotation-api").versionAsInProject(),
 
-                // Google Guava
-                mavenBundle().groupId("com.google.guava").artifactId("guava").versionAsInProject(),
-
                 junitBundles(),
 
                 // HK2
@@ -166,8 +163,9 @@ public class Helper {
                 mavenBundle().groupId("org.glassfish.hk2").artifactId("hk2-locator").versionAsInProject(),
                 mavenBundle().groupId("org.glassfish.hk2").artifactId("hk2-utils").versionAsInProject(),
                 mavenBundle().groupId("org.glassfish.hk2.external").artifactId("javax.inject").versionAsInProject(),
-                mavenBundle().groupId("org.glassfish.hk2.external").artifactId("asm-all-repackaged").versionAsInProject(),
-                mavenBundle().groupId("org.glassfish.hk2.external").artifactId("cglib").versionAsInProject(),
+                mavenBundle().groupId("org.glassfish.hk2.external").artifactId("aopalliance-repackaged").versionAsInProject(),
+                mavenBundle().groupId("org.ow2.asm").artifactId("asm-debug-all").versionAsInProject(),
+                mavenBundle().groupId("org.javassist").artifactId("javassist").versionAsInProject(),
 
                 // Grizzly
                 systemPackage("sun.misc"),
@@ -177,6 +175,9 @@ public class Helper {
 
                 // javax.validation
                 mavenBundle().groupId("javax.validation").artifactId("validation-api").versionAsInProject(),
+
+                // Guava
+                mavenBundle().groupId("org.glassfish.jersey.bundles.repackaged").artifactId("jersey-guava").versionAsInProject(),
 
                 // Jersey Grizzly
                 mavenBundle().groupId("org.glassfish.jersey.containers").artifactId("jersey-container-grizzly2-http")
